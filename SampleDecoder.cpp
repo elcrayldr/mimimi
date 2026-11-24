@@ -107,6 +107,18 @@ namespace cray
             return result;
         }
 
+        // Float WAVs can legally contain NaN/Inf payloads. Sanitize them once during
+        // background decode so one corrupt sample cannot poison an entire voice/mix bus.
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            auto* channelData = buf->audio.getWritePointer(ch);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                if (!std::isfinite(channelData[i]))
+                    channelData[i] = 0.0f;
+            }
+        }
+
         float peak = 0.0f;
         for (int ch = 0; ch < numChannels; ++ch)
             peak = std::max(peak, buf->audio.getMagnitude(ch, 0, numSamples));
