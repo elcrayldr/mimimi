@@ -37,7 +37,7 @@ namespace cray
 
         bool savePresetToFile(const juce::File& targetFile,
                               const PresetMetadata& meta,
-                              const juce::AudioProcessorValueTreeState& apvts,
+                              juce::AudioProcessorValueTreeState& apvts,
                               const InstrumentDefinition& instrument);
 
         PresetLoadResult loadPresetFromFile(const juce::File& file,
