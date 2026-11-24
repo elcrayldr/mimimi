@@ -10,7 +10,7 @@ namespace cray
 
     bool PresetManager::savePresetToFile(const juce::File& targetFile,
                                          const PresetMetadata& meta,
-                                         const juce::AudioProcessorValueTreeState& apvts,
+                                         juce::AudioProcessorValueTreeState& apvts,
                                          const InstrumentDefinition& instrument)
     {
         // Protect Factory Library from accidental overwrites
