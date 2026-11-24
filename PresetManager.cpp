@@ -227,6 +227,18 @@ namespace cray
             return res;
         }
 
+        // Bound archive expansion before extraction to reduce zip-bomb / disk exhaustion risk.
+        constexpr int kMaxPackEntries = 4096;
+        constexpr juce::int64 kMaxPackEntryBytes = 512LL * 1024LL * 1024LL;
+        constexpr juce::int64 kMaxPackTotalBytes = 2LL * 1024LL * 1024LL * 1024LL;
+        if (zip.getNumEntries() > kMaxPackEntries)
+        {
+            res.statusMessage = "Pack contains too many entries.";
+            return res;
+        }
+
+        juce::int64 totalUncompressedBytes = 0;
+
         // Reject absolute paths and parent traversal before asking JUCE to extract.
         // This prevents a crafted archive from writing outside the selected library folder.
         for (int i = 0; i < zip.getNumEntries(); ++i)
@@ -237,6 +249,15 @@ namespace cray
                 res.statusMessage = "Pack contains an unreadable archive entry.";
                 return res;
             }
+
+            const auto entryBytes = static_cast<juce::int64>(entry->uncompressedSize);
+            if (entryBytes < 0 || entryBytes > kMaxPackEntryBytes
+                || totalUncompressedBytes > kMaxPackTotalBytes - entryBytes)
+            {
+                res.statusMessage = "Pack exceeds the allowed uncompressed size.";
+                return res;
+            }
+            totalUncompressedBytes += entryBytes;
 
             const auto entryPath = entry->filename.replaceCharacter('\\', '/');
             if (entryPath.isEmpty() || entryPath.startsWithChar('/')
