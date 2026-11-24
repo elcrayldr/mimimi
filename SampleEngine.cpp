@@ -26,6 +26,10 @@ namespace cray
             p.samplesRendered = 0;
             p.env.reset();
             p.filter.reset();
+            p.filterParamsValid = false;
+            p.lastCutoffMod = 0.0f;
+            p.lastResonanceMod = 0.0f;
+            p.lastFilterType = SvfFilterType::LowPass12;
         }
         releasePinnedInstrument();
     }
