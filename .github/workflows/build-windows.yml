@@ -37,6 +37,18 @@ jobs:
         run: |
           git clone --depth 1 --branch $env:JUCE_VERSION https://github.com/juce-framework/JUCE.git "$env:GITHUB_WORKSPACE/juce-src"
 
+      - name: Validate release packaging script syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$env:GITHUB_WORKSPACE/package_release.ps1", [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            throw "Release packaging script contains PowerShell syntax errors."
+          }
+          Write-Host "PowerShell release packaging script syntax is valid."
+
       - name: Configure
         shell: pwsh
         run: |
