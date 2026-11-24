@@ -5,6 +5,7 @@
 #include "DSP/Oscillators/PolyBlepOscillator.h"
 #include "Engine/SampleEngine.h"
 #include "Library/InstrumentDefinition.h"
+#include "Library/InstrumentBuilder.h"
 
 namespace
 {
@@ -18,6 +19,7 @@ namespace
             testOscillatorOutput();
             testEnvelopeLifecycle();
             testInstrumentDefinitionRoundTrip();
+            testBuilderNoteDetectionAndKeyMapping();
             testSampleVoicePlaybackAndPinning();
             testSampleVoiceLoopFilterAndRelease();
         }
@@ -162,6 +164,40 @@ namespace
             }
             expect(!voice.isActive(), "Looped sample did not stop after release envelope");
             expectEquals(instrument.audioRefCount.load(), 0);
+        }
+
+        void testBuilderNoteDetectionAndKeyMapping()
+        {
+            beginTest("Instrument Builder detects note names and maps adjacent key zones");
+            const auto c1 = cray::InstrumentBuilder::parseMidiNoteFromName("808_Kick_C1.wav");
+            const auto fs3 = cray::InstrumentBuilder::parseMidiNoteFromName("Lead_F#3.wav");
+            const auto bb2 = cray::InstrumentBuilder::parseMidiNoteFromName("Pad_Bb2.wav");
+            const auto falseMatch = cray::InstrumentBuilder::parseMidiNoteFromName("BASS.wav");
+
+            expect(c1.has_value() && *c1 == 24, "C1 filename was not detected as MIDI 24");
+            expect(fs3.has_value() && *fs3 == 54, "F#3 filename was not detected as MIDI 54");
+            expect(bb2.has_value() && *bb2 == 46, "Bb2 filename was not detected as MIDI 46");
+            expect(!falseMatch.has_value(), "Parser incorrectly treated a word as a note name");
+
+            cray::InstrumentDefinition instrument;
+            instrument.zones.clear();
+            for (const int root : { 36, 48, 60, 72 })
+            {
+                cray::SampleZoneSpec zone;
+                zone.rootNote = root;
+                zone.layerIndex = 0;
+                instrument.zones.push_back(zone);
+            }
+
+            cray::InstrumentBuilder::autoMapZonesByRootNote(instrument, 0);
+            expectEquals(instrument.zones[0].lowKey, 0);
+            expectEquals(instrument.zones[0].highKey, 42);
+            expectEquals(instrument.zones[1].lowKey, 43);
+            expectEquals(instrument.zones[1].highKey, 54);
+            expectEquals(instrument.zones[2].lowKey, 55);
+            expectEquals(instrument.zones[2].highKey, 66);
+            expectEquals(instrument.zones[3].lowKey, 67);
+            expectEquals(instrument.zones[3].highKey, 127);
         }
 
         void testSampleVoicePlaybackAndPinning()
