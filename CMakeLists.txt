@@ -198,8 +198,12 @@ if(CRAY_BUILD_TESTS)
       message(FATAL_ERROR "CRAY_BUILD_TESTS=ON but test source is missing: ${source}")
     endif()
   endforeach()
-  add_executable(CrayLdrTests ${CRAY_TEST_SOURCES})
+  # JUCE's generated header helper requires a JUCE-created target.
+  # A console app gives the test runner a proper JUCE target without a GUI.
+  juce_add_console_app(CrayLdrTests
+    PRODUCT_NAME "CRAY LDR Urban Instruments Tests")
   juce_generate_juce_header(CrayLdrTests)
+  target_sources(CrayLdrTests PRIVATE ${CRAY_TEST_SOURCES})
   target_include_directories(CrayLdrTests PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CRAY_COMPAT_INCLUDE_DIR}")
