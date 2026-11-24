@@ -282,12 +282,15 @@ namespace cray
         if (!restoredParameterTree.isValid() || !restoredParameterTree.hasType(apvts_.state.getType()))
             return;
 
-        if (!root->hasProperty("instrument"))
-            return;
-
         InstrumentDefinition candidateInstrument;
-        if (!InstrumentDefinition::fromJson(root->getProperty("instrument"), candidateInstrument))
-            return;
+        // Older/synth-only project states may intentionally store a null instrument.
+        if (root->hasProperty("instrument"))
+        {
+            const auto instrumentValue = root->getProperty("instrument");
+            if (!instrumentValue.isVoid()
+                && !InstrumentDefinition::fromJson(instrumentValue, candidateInstrument))
+                return;
+        }
 
         PresetMetadata candidateMetadata;
         candidateMetadata.name     = root->getProperty("presetName").toString();
