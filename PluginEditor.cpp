@@ -237,12 +237,7 @@ namespace cray
                 {
                     const auto extractDir = processor_.getLibraryManager().getUserLibraryRoot().getChildFile("ImportedPacks");
                     const auto res = processor_.getPresetManager().importPortablePack(packFile, processor_.getApvts(), extractDir);
-                    if (res.success)
-                    {
-                        processor_.getActiveInstrument() = res.instrument;
-                        processor_.rebuildAndPublishInstrument();
-                        syncAllViews();
-                    }
+                    processor_.applyImportedPack(res);
                 }
             });
     }
