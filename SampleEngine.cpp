@@ -8,6 +8,9 @@ namespace cray
     void SampleVoice::prepare(double sampleRate) noexcept
     {
         sampleRate_ = (sampleRate > 1.0) ? sampleRate : 44100.0;
+        ampEnv_.prepare(sampleRate_);
+        filterEnv_.prepare(sampleRate_);
+        globalFilter_.prepare(sampleRate_);
         for (auto& p : players_)
         {
             p.env.prepare(sampleRate_);
@@ -18,6 +21,12 @@ namespace cray
 
     void SampleVoice::reset() noexcept
     {
+        ampEnv_.reset();
+        filterEnv_.reset();
+        globalFilter_.reset();
+        globalFilterParamsValid_ = false;
+        lastGlobalCutoff_ = 0.0f;
+        lastGlobalResonance_ = 0.0f;
         for (auto& p : players_)
         {
             p.active = false;
@@ -104,10 +113,25 @@ namespace cray
 
         if (slotIdx == 0)
             releasePinnedInstrument();
+        else
+        {
+            ampEnv_.noteOn();
+            filterEnv_.noteOn();
+            globalFilter_.reset();
+            globalFilterParamsValid_ = false;
+        }
+    }
+
+    void SampleVoice::updateEnvelopes(const SampleGlobalParams& params) noexcept
+    {
+        ampEnv_.setParameters(params.ampAttack, params.ampDecay, params.ampSustain, params.ampRelease);
+        filterEnv_.setParameters(params.filterAttack, params.filterDecay, params.filterSustain, params.filterRelease);
     }
 
     void SampleVoice::releaseNote() noexcept
     {
+        ampEnv_.noteOff();
+        filterEnv_.noteOff();
         for (auto& p : players_)
         {
             if (p.active)
@@ -117,6 +141,8 @@ namespace cray
 
     void SampleVoice::fastKill() noexcept
     {
+        ampEnv_.fastKill(0.004f);
+        filterEnv_.fastKill(0.004f);
         for (auto& p : players_)
         {
             if (p.active)
@@ -126,6 +152,8 @@ namespace cray
 
     bool SampleVoice::isActive() const noexcept
     {
+        if (!ampEnv_.isActive())
+            return false;
         for (const auto& p : players_)
             if (p.active)
                 return true;
@@ -134,6 +162,8 @@ namespace cray
 
     bool SampleVoice::isReleasing() const noexcept
     {
+        if (ampEnv_.isActive() && !ampEnv_.isReleasing())
+            return false;
         bool anyActive = false;
         for (const auto& p : players_)
         {
@@ -149,10 +179,10 @@ namespace cray
 
     float SampleVoice::getEnvLevel() const noexcept
     {
-        float maxLevel = 0.0f;
+        float maxLevel = ampEnv_.getCurrentLevel();
         for (const auto& p : players_)
             if (p.active)
-                maxLevel = std::max(maxLevel, p.env.getCurrentLevel());
+                maxLevel = std::max(maxLevel, p.env.getCurrentLevel() * ampEnv_.getCurrentLevel());
         return maxLevel;
     }
 
@@ -187,6 +217,17 @@ namespace cray
         float sumR = 0.0f;
         bool anyStillActive = false;
 
+        if (!ampEnv_.isActive())
+        {
+            for (auto& player : players_)
+                player.active = false;
+            releasePinnedInstrument();
+            outLeft = outRight = 0.0f;
+            return;
+        }
+
+        const float globalAmpEnv = ampEnv_.getNextSample();
+        const float globalFilterEnv = filterEnv_.getNextSample();
         const float velGain = (1.0f - globalParams.velSensitivity) + globalParams.velSensitivity * velocity_;
         const float matrixPitchSemis = modOffsets[static_cast<size_t>(ModDest::MasterPitch)] * 12.0f;
 
@@ -292,8 +333,11 @@ namespace cray
                                   * layerGains_[idx]
                                   * globalParams.gainLinear
                                   * envVal
+                                  * globalAmpEnv
                                   * velGain
                                   * fadeGain
+                                  * DspMath::clamp(1.0f + modOffsets[static_cast<size_t>(ModDest::AmpLevel)]
+                                                       + (globalParams.lfo1ToAmp * globalParams.lfo1Value), 0.0f, 1.5f)
                                   * 1.4142f; // preserve unity gain at center pan
 
             sumL += sampleL * panL * totalGain;
@@ -305,7 +349,8 @@ namespace cray
                 (static_cast<double>(currentNoteFloat) - static_cast<double>(z.rootNote))
                 + static_cast<double>(z.pitchSemitones + globalParams.pitchSemis)
                 + (static_cast<double>(z.fineTuneCents + globalParams.fineCents) * 0.01)
-                + static_cast<double>(pitchBendSemis + matrixPitchSemis);
+                + static_cast<double>(pitchBendSemis + matrixPitchSemis
+                                      + (globalParams.lfo1ToPitch * globalParams.lfo1Value * 2.0f));
 
             const double step = srRatio * DspMath::semitonesToRatioDouble(totalSemiOffset);
             if (z.reverse)
@@ -348,9 +393,39 @@ namespace cray
         }
 
         if (!anyStillActive)
+        {
             releasePinnedInstrument();
+            outLeft = outRight = 0.0f;
+            return;
+        }
 
-        outLeft  = sumL;
-        outRight = sumR;
+        if (globalParams.filterEnabled)
+        {
+            const float keyTrackOctaves = ((currentNoteFloat - 60.0f) / 12.0f) * globalParams.filterKeyTrack;
+            const float envOctaves = globalFilterEnv * globalParams.filterEnvAmount * 5.0f;
+            const float lfoOctaves = globalParams.lfo1Value * globalParams.lfo1ToCutoff * 3.0f;
+            const float matrixOctaves = modOffsets[static_cast<size_t>(ModDest::FilterCutoff)] * 5.0f;
+            const float cutoff = DspMath::clamp(globalParams.filterCutoffHz
+                                   * std::pow(2.0f, keyTrackOctaves + envOctaves + lfoOctaves + matrixOctaves),
+                                   20.0f, static_cast<float>(sampleRate_ * 0.45));
+            const float resonance = DspMath::clamp(globalParams.filterResonance
+                                   + modOffsets[static_cast<size_t>(ModDest::FilterResonance)] * 0.5f,
+                                   0.0f, 0.96f);
+            if (!globalFilterParamsValid_ || cutoff != lastGlobalCutoff_ || resonance != lastGlobalResonance_)
+            {
+                globalFilter_.setParameters(globalParams.filterType, cutoff, resonance);
+                lastGlobalCutoff_ = cutoff;
+                lastGlobalResonance_ = resonance;
+                globalFilterParamsValid_ = true;
+            }
+            globalFilter_.processStereo(sumL, sumR);
+        }
+
+        const float globalPan = DspMath::clamp(globalParams.pan
+                                  + modOffsets[static_cast<size_t>(ModDest::Pan)], -1.0f, 1.0f);
+        float globalPanL = 1.0f, globalPanR = 1.0f;
+        DspMath::equalPowerPan(globalPan, globalPanL, globalPanR);
+        outLeft = sumL * globalPanL * globalAmpEnv;
+        outRight = sumR * globalPanR * globalAmpEnv;
     }
 }
