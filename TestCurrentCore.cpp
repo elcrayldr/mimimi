@@ -174,11 +174,13 @@ namespace
             const auto fs3 = cray::InstrumentBuilder::parseMidiNoteFromName("Lead_F#3.wav");
             const auto bb2 = cray::InstrumentBuilder::parseMidiNoteFromName("Pad_Bb2.wav");
             const auto falseMatch = cray::InstrumentBuilder::parseMidiNoteFromName("BASS.wav");
+            const auto flC5 = cray::InstrumentBuilder::parseMidiNoteFromName("Piano_C5.wav");
 
-            expect(c1.has_value() && *c1 == 24, "C1 filename was not detected as MIDI 24");
-            expect(fs3.has_value() && *fs3 == 54, "F#3 filename was not detected as MIDI 54");
-            expect(bb2.has_value() && *bb2 == 46, "Bb2 filename was not detected as MIDI 46");
+            expect(c1.has_value() && *c1 == 12, "FL Studio C1 filename was not detected as MIDI 12");
+            expect(fs3.has_value() && *fs3 == 42, "FL Studio F#3 filename was not detected as MIDI 42");
+            expect(bb2.has_value() && *bb2 == 34, "FL Studio Bb2 filename was not detected as MIDI 34");
             expect(!falseMatch.has_value(), "Parser incorrectly treated a word as a note name");
+            expect(flC5.has_value() && *flC5 == 60, "FL Studio C5 must map to MIDI note 60");
 
             cray::InstrumentDefinition instrument;
             instrument.zones.clear();
