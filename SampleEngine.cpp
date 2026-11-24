@@ -88,8 +88,7 @@ namespace cray
             p.env.noteOn();
 
             p.filter.reset();
-            if (zone.filterEnabled)
-                p.filter.setParameters(zone.filterType, zone.filterCutoffHz, zone.filterResonance);
+            p.filterParamsValid = false;
 
             float lGain = 1.0f;
             if (zone.layerIndex >= 0 && static_cast<size_t>(zone.layerIndex) < instrument->layerGain.size())
@@ -259,9 +258,25 @@ namespace cray
 
             if (z.filterEnabled)
             {
-                const float cutoffMod = z.filterCutoffHz * std::pow(2.0f, modOffsets[static_cast<size_t>(ModDest::FilterCutoff)] * 4.0f);
-                const float resMod    = DspMath::clamp(z.filterResonance + modOffsets[static_cast<size_t>(ModDest::FilterResonance)] * 0.4f, 0.0f, 0.95f);
-                p.filter.setParameters(z.filterType, cutoffMod, resMod);
+                const float cutoffModInput = modOffsets[static_cast<size_t>(ModDest::FilterCutoff)];
+                const float resonanceModInput = modOffsets[static_cast<size_t>(ModDest::FilterResonance)];
+
+                if (!p.filterParamsValid
+                    || cutoffModInput != p.lastCutoffMod
+                    || resonanceModInput != p.lastResonanceMod
+                    || z.filterType != p.lastFilterType)
+                {
+                    const float cutoffMod = z.filterCutoffHz * std::pow(2.0f, cutoffModInput * 4.0f);
+                    const float resMod = DspMath::clamp(
+                        z.filterResonance + resonanceModInput * 0.4f, 0.0f, 0.95f);
+
+                    p.filter.setParameters(z.filterType, cutoffMod, resMod);
+                    p.lastCutoffMod = cutoffModInput;
+                    p.lastResonanceMod = resonanceModInput;
+                    p.lastFilterType = z.filterType;
+                    p.filterParamsValid = true;
+                }
+
                 p.filter.processStereo(sampleL, sampleR);
             }
 
