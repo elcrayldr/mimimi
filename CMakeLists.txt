@@ -173,7 +173,7 @@ target_compile_definitions(CrayLdrUrbanInstruments PUBLIC
   JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:CrayLdrUrbanInstruments,JUCE_PRODUCT_NAME>"
   JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:CrayLdrUrbanInstruments,JUCE_VERSION>")
 
-# Factory resources are optional in the current repository snapshot.
+# Package optional structured resources plus the current root-level factory presets.
 foreach(resource_dir FactoryPresets FactorySamples)
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/${resource_dir}")
     add_custom_command(TARGET CrayLdrUrbanInstruments POST_BUILD
@@ -183,6 +183,18 @@ foreach(resource_dir FactoryPresets FactorySamples)
       VERBATIM)
   endif()
 endforeach()
+
+file(GLOB CRAY_ROOT_FACTORY_PRESETS CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/*.craypreset")
+if(CRAY_ROOT_FACTORY_PRESETS)
+  add_custom_command(TARGET CrayLdrUrbanInstruments POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+      "$<TARGET_FILE_DIR:CrayLdrUrbanInstruments>/Resources/FactoryPresets"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+      ${CRAY_ROOT_FACTORY_PRESETS}
+      "$<TARGET_FILE_DIR:CrayLdrUrbanInstruments>/Resources/FactoryPresets"
+    VERBATIM)
+endif()
 
 if(CRAY_BUILD_TESTS)
   set(CRAY_TEST_SOURCES
