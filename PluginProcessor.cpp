@@ -261,37 +261,49 @@ namespace cray
 
         const auto jsonText = juce::String::fromUTF8(static_cast<const char*>(data), sizeInBytes);
         const auto parsed   = juce::JSON::parse(jsonText);
+        auto* root = parsed.getDynamicObject();
+        if (root == nullptr)
+            return;
 
-        if (auto* root = parsed.getDynamicObject())
-        {
-            const int schema = static_cast<int>(root->getProperty("schemaVersion"));
-            if (schema <= 0)
-                return;
+        const int schema = static_cast<int>(root->getProperty("schemaVersion"));
+        if (schema < 1 || schema > ProductInfo::kStateSchemaVersion)
+            return;
 
-            currentPresetMeta_.name     = root->getProperty("presetName").toString();
-            currentPresetMeta_.category = categoryFromString(root->getProperty("presetCategory").toString());
-            currentPresetMeta_.author   = root->getProperty("presetAuthor").toString();
-            currentPresetMeta_.bank     = root->getProperty("presetBank").toString();
-            currentPresetMeta_.tags     = root->getProperty("presetTags").toString();
+        // Decode and validate every component before changing the live processor state.
+        const auto xmlStr = root->getProperty("apvtsXml").toString();
+        if (xmlStr.isEmpty())
+            return;
 
-            const auto xmlStr = root->getProperty("apvtsXml").toString();
-            if (xmlStr.isNotEmpty())
-            {
-                if (auto xml = juce::XmlDocument::parse(xmlStr))
-                {
-                    auto tree = juce::ValueTree::fromXml(*xml);
-                    if (tree.isValid() && tree.hasType(apvts_.state.getType()))
-                        apvts_.replaceState(tree);
-                }
-            }
+        auto xml = juce::XmlDocument::parse(xmlStr);
+        if (xml == nullptr)
+            return;
 
-            if (root->hasProperty("instrument"))
-                InstrumentDefinition::fromJson(root->getProperty("instrument"), activeInstrument_);
+        auto parameterTree = juce::ValueTree::fromXml(*xml);
+        if (!parameterTree.isValid() || !parameterTree.hasType(apvts_.state.getType()))
+            return;
 
-            sampleEditorModel_.setSelectedZoneIndex(0);
-            rebuildAndPublishInstrument();
-            notifyStateChanged();
-        }
+        if (!root->hasProperty("instrument"))
+            return;
+
+        InstrumentDefinition candidateInstrument;
+        if (!InstrumentDefinition::fromJson(root->getProperty("instrument"), candidateInstrument))
+            return;
+
+        PresetMetadata candidateMetadata;
+        candidateMetadata.name     = root->getProperty("presetName").toString();
+        candidateMetadata.category = categoryFromString(root->getProperty("presetCategory").toString());
+        candidateMetadata.author   = root->getProperty("presetAuthor").toString();
+        candidateMetadata.bank     = root->getProperty("presetBank").toString();
+        candidateMetadata.tags     = root->getProperty("presetTags").toString();
+
+        // Commit only after the saved state has passed schema, XML and instrument checks.
+        apvts_.replaceState(parameterTree);
+        currentPresetMeta_ = std::move(candidateMetadata);
+        activeInstrument_  = std::move(candidateInstrument);
+
+        sampleEditorModel_.setSelectedZoneIndex(0);
+        rebuildAndPublishInstrument();
+        notifyStateChanged();
     }
 
     juce::AudioProcessorEditor* CrayLdrAudioProcessor::createEditor()
