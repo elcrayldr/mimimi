@@ -25,8 +25,8 @@ namespace cray
         {
             wchar_t modulePath[32768] {};
             const auto length = GetModuleFileNameW(moduleHandle, modulePath,
-                                                    static_cast<DWORD>(std::size(modulePath)));
-            if (length > 0 && length < std::size(modulePath))
+                                                    static_cast<DWORD>(sizeof(modulePath) / sizeof(modulePath[0])));
+            if (length > 0 && length < (sizeof(modulePath) / sizeof(modulePath[0])))
             {
                 const auto moduleDir = juce::File(juce::String::fromUTF16(
                     reinterpret_cast<const juce::juce_wchar*>(modulePath))).getParentDirectory();
