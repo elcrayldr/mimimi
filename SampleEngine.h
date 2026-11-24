@@ -15,6 +15,26 @@ namespace cray
         int   pitchSemis     = 0;
         float fineCents      = 0.0f;
         float velSensitivity = 0.75f;
+
+        // Shared global voice controls also process sample playback.
+        float ampAttack = 0.006f;
+        float ampDecay = 0.30f;
+        float ampSustain = 0.80f;
+        float ampRelease = 0.25f;
+        bool filterEnabled = true;
+        SvfFilterType filterType = SvfFilterType::LowPass24;
+        float filterCutoffHz = 14000.0f;
+        float filterResonance = 0.15f;
+        float filterKeyTrack = 0.25f;
+        float filterEnvAmount = 0.35f;
+        float filterAttack = 0.01f;
+        float filterDecay = 0.40f;
+        float filterSustain = 0.35f;
+        float filterRelease = 0.35f;
+        float lfo1ToPitch = 0.0f;
+        float lfo1ToCutoff = 0.0f;
+        float lfo1ToAmp = 0.0f;
+        float lfo1Value = 0.0f;
     };
 
     /**
@@ -36,6 +56,7 @@ namespace cray
 
         void releaseNote() noexcept;
         void fastKill() noexcept;
+        void updateEnvelopes(const SampleGlobalParams& globalParams) noexcept;
 
         void renderSample(const SampleGlobalParams& globalParams,
                           float currentNoteFloat,
@@ -47,6 +68,8 @@ namespace cray
         bool  isActive() const noexcept;
         bool  isReleasing() const noexcept;
         float getEnvLevel() const noexcept;
+        float getFilterEnvLevel() const noexcept { return filterEnv_.getCurrentLevel(); }
+        float getVelocity() const noexcept { return velocity_; }
 
     private:
         struct ZonePlayer
@@ -71,6 +94,12 @@ namespace cray
 
         double                          sampleRate_         = 44100.0;
         const CompiledSampleInstrument* pinnedInstrument_   = nullptr;
+        AhdsrEnvelope                   ampEnv_;
+        AhdsrEnvelope                   filterEnv_;
+        ZdfSvfFilter                    globalFilter_;
+        bool                            globalFilterParamsValid_ = false;
+        float                           lastGlobalCutoff_ = 0.0f;
+        float                           lastGlobalResonance_ = 0.0f;
         float                           velocity_           = 1.0f;
         float                           layerGains_[kMaxLayersPerVoice]{};
         std::array<ZonePlayer, kMaxLayersPerVoice> players_;
