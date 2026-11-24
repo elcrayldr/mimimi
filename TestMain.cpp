@@ -7,9 +7,8 @@
 
 #include <JuceHeader.h>
 
-// Pull in all test translation units so their static registrations fire.
-// (Each test file defines a local struct that registers itself with
-//  juce::UnitTestRunner on construction.)
+// Test translation units are explicitly listed in CMakeLists.txt.
+// Each compiled test file registers its JUCE UnitTest at static initialization.
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
