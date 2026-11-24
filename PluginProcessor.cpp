@@ -278,8 +278,8 @@ namespace cray
         if (xml == nullptr)
             return;
 
-        auto parameterTree = juce::ValueTree::fromXml(*xml);
-        if (!parameterTree.isValid() || !parameterTree.hasType(apvts_.state.getType()))
+        auto restoredParameterTree = juce::ValueTree::fromXml(*xml);
+        if (!restoredParameterTree.isValid() || !restoredParameterTree.hasType(apvts_.state.getType()))
             return;
 
         if (!root->hasProperty("instrument"))
@@ -297,7 +297,7 @@ namespace cray
         candidateMetadata.tags     = root->getProperty("presetTags").toString();
 
         // Commit only after the saved state has passed schema, XML and instrument checks.
-        apvts_.replaceState(parameterTree);
+        apvts_.replaceState(restoredParameterTree);
         currentPresetMeta_ = std::move(candidateMetadata);
         activeInstrument_  = std::move(candidateInstrument);
 
