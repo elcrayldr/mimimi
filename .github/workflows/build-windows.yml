@@ -1,0 +1,77 @@
+name: CRAY LDR Urban Instruments - Windows Build
+
+on:
+  push:
+    branches: [ main, develop, 'fix/**' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Keep only the newest build for each branch / pull-request ref.
+concurrency:
+  group: cray-ldr-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JUCE_VERSION: "8.0.6"
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  build-windows:
+    name: Build VST3 (Windows x64)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        id: cache-juce
+        with:
+          path: ${{ github.workspace }}/juce-src
+          key: juce-${{ env.JUCE_VERSION }}-windows
+
+      - name: Clone JUCE
+        if: steps.cache-juce.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch $env:JUCE_VERSION https://github.com/juce-framework/JUCE.git "$env:GITHUB_WORKSPACE/juce-src"
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DJUCE_DIR="$env:GITHUB_WORKSPACE/juce-src" -DCRAY_BUILD_TESTS=ON -DCRAY_BUILD_STANDALONE=ON
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+
+      - name: Run unit tests
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Locate VST3
+        id: locate
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter "*.vst3" | Select-Object -First 1
+          if ($null -eq $plugin) { throw "VST3 artifact was not produced." }
+          $presetDir = Join-Path $plugin.FullName "Contents\Resources\FactoryPresets"
+          $presets = @(Get-ChildItem -Path $presetDir -File -Filter "*.craypreset" -ErrorAction SilentlyContinue)
+          if ($presets.Count -lt 8) {
+            throw "Expected at least 8 factory presets in $presetDir, found $($presets.Count)."
+          }
+          Write-Host "Verified $($presets.Count) factory presets in the VST3 bundle."
+          python scripts/validate_factory_presets.py "$presetDir"
+          if ($LASTEXITCODE -ne 0) { throw "Factory preset manifest validation failed." }
+          python scripts/validate_vst3_bundle.py "$($plugin.FullName)"
+          if ($LASTEXITCODE -ne 0) { throw "VST3 bundle architecture validation failed." }
+          "VST3_PATH=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: CRAY-LDR-Urban-Instruments-VST3-Win64
+          path: ${{ steps.locate.outputs.VST3_PATH }}
+          if-no-files-found: error
+          retention-days: 30

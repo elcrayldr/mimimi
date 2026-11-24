@@ -1,222 +1,111 @@
-# CRAY LDR URBAN INSTRUMENTS — Architecture
+# CRAY LDR URBAN INSTRUMENTS — Architecture Notes
 
-> Internal architecture reference for developers working on the codebase.
+These notes describe the current source layout and intended thread ownership. They are not a certification of real-time safety or a substitute for runtime stress tests.
 
----
+## Build topology
 
-## Module Overview
+- `CrayLdrCore`: DSP, voice engine, sample decoder, library, instrument builder and preset manager.
+- `CrayLdrUrbanInstruments`: JUCE VST3 target and optional Standalone target.
+- Source files currently live at repository root. CMake explicitly lists them and generates compatibility include paths for the original logical paths such as `Engine/...` and `DSP/...`.
+- JUCE version: 8.0.6. Language level: C++17.
 
-```mermaid-like diagram (text representation)
-
-  ┌─────────────────────────────────────────────────────────────┐
-  │                      PluginProcessor                        │
-  │  (AudioProcessor: prepareToPlay, processBlock, state I/O)  │
-  └──────────────┬─────────────────────────────────────────────┘
-                 │ owns
-  ┌──────────────▼──────────────────────────────────┐
-  │                   AudioEngine                   │
-  │  • Dual LFO (LfoEngine ×2)                      │
-  │  • ModMatrix (8 slots, 10 sources × 19 dests)   │
-  │  • EffectsChain (EQ→Sat→Chorus→Delay→Reverb)   │
-  │  • Lock-free instrument swap                    │
-  │  • per-sample MIDI dispatch                     │
-  └────┬──────────────────────────┬─────────────────┘
-       │ owns                     │ owns
-  ┌────▼────────┐           ┌────▼────────┐
-  │ VoiceManager│           │ EffectsChain│
-  │  128+8 slots│           └─────────────┘
-  │  Poly/Mono/ │
-  │  Legato     │
-  └──┬───────┬──┘
-     │       │ manages N voices
-  ┌──▼──┐ ┌──▼──────┐
-  │Synth│ │ Sample  │
-  │Voice│ │  Voice  │
-  └──┬──┘ └────┬────┘
-     │          │
-  ┌──▼──────┐ ┌▼─────────────┐
-  │4× Unison│ │ CompiledSample│
-  │OscBank  │ │ Instrument    │
-  │AhdsrEnv │ │ (RT-safe ref) │
-  │ZdfFilter│ └───────────────┘
-  └─────────┘
-
-  Message Thread:
-  ┌─────────────────────────────────────┐
-  │  LibraryManager  InstrumentBuilder  │
-  │  SampleDecoder   SampleEditorModel  │
-  │  PresetManager                      │
-  └─────────────────────────────────────┘
-  → publishes compiled instrument via atomic<> pointer
-  → audio thread reads pointer, never touches files
-```
-
----
-
-## Real-Time Safety Contract
-
-The audio callback (`AudioEngine::process`, called from `processBlock`) must never:
-
-| Prohibited action | Mitigation |
-|-------------------|-----------|
-| Allocate heap memory | All buffers pre-allocated in `prepareToPlay` |
-| Lock a mutex | Instrument swap uses `std::atomic<>` + ref-count |
-| Read from disk | SampleBuffer pre-loaded on message thread |
-| Throw exceptions | DSP code uses `noexcept`; filters have overflow guards |
-| Call OS-blocking APIs | None used in audio path |
-
-### Instrument Swap Protocol
-
-1. **Message thread** builds a `CompiledSampleInstrument` (heap-allocated, refcount = 0).
-2. Message thread atomically stores pointer in `AudioEngine::m_pendingInstrument`.
-3. At the top of `AudioEngine::process`, if `m_pendingInstrument != nullptr`:
-   - Atomically swap pending → active.
-   - Increment `active->audioRefCount`.
-   - Decrement old instrument's `audioRefCount`.
-4. A 200ms timer on the message thread garbage-collects instruments with `audioRefCount == 0`.
-
----
-
-## DSP Details
-
-### Anti-Aliasing (Oscillators)
-
-All band-limited waveforms use the **PolyBLEP** method (polynomial band-limited step). This reduces aliasing artifacts from discontinuities (Saw reset, Square transition) without requiring oversampling. Noise is a 32-bit xorshift PRNG, inherently band-limited.
-
-### Zero-Delay Feedback Filter
-
-The `ZdfSvfFilter` implements a **Trapezoidal-Integrator State-Variable Filter** (TPT/ZDF). This topology is unconditionally stable at all cutoff frequencies (0 Hz to Nyquist) and all resonance values up to self-oscillation. It supports LP12, LP24 (2×cascaded), HP12, and BP12.
-
-### ADSR Envelope
-
-`AhdsrEnvelope` uses **exponential curves** for attack (concave-up), decay and release (convex-down), giving musically natural shapes. A `FastKill` method immediately starts a very short release for voice stealing without audible clicks.
-
-### Cubic Hermite Interpolation
-
-`SampleVoice` uses 4-point cubic Hermite interpolation when the playback rate differs from 1:1. This achieves C1 continuity (smooth derivatives) at sample boundaries, superior to linear interpolation for resampling quality.
-
-### Unison
-
-`UnisonOscillatorBank` detuning is symmetric around the base pitch: for N voices, voice i is detuned by `detune × (2i/(N-1) - 1)` semitones. The summed output is multiplied by `1/sqrt(N)` to preserve perceived loudness.
-
----
-
-## Modulation Matrix
-
-8 slots, each connecting one source to one destination with a bipolar amount.
-
-**Sources (10):**
-LFO1, LFO2, AmpEnv, FilterEnv, Velocity, ModWheel, Aftertouch, PitchBend, KeyFollow, Random
-
-**Destinations (19):**
-Osc1Pitch, Osc2Pitch, Osc3Pitch, Osc4Pitch, Osc1Level, Osc2Level, FilterCutoff, FilterResonance, AmpLevel, PanPosition, ReverbWet, ChorusDepth, ChorusRate, DelayTime, DelayFeedback, SatDrive, LFO1Rate, LFO2Rate, Osc1FMAmount
-
-Mod amounts are evaluated once per audio block (not per-sample) for efficiency. Destinations are applied as additive offsets to their corresponding AudioEngine parameters before voice rendering begins.
-
----
-
-## Effects Chain
-
-Signal path: `EQ → Saturation/Distortion → Chorus → Delay → Reverb → Safety Limiter`
-
-| Module | Algorithm |
-|--------|-----------|
-| ParametricEq | 4-band stereo: Low Shelf + 2× Peak + High Shelf (RBJ biquads) |
-| SaturationDistortion | Tape (soft clip tanh), Tube (asymmetric soft clip), Warm (mild fold) + Hard Clip, Foldback, Crunch distortion |
-| StereoChorus | Dual-LFO quadrature modulated delay, pre-allocated ring buffers |
-| StereoDelay | Ping-Pong with tempo sync, smooth delay slew, FB high-cut filter |
-| AlgorithmicReverb | Freeverb-style: 8 comb filters + 4 allpass per side, pre-delay, stereo width |
-| Safety Limiter | Per-sample soft-knee limiter at –0.1 dBFS |
-
----
-
-## State Serialization
-
-### Format
-
-```json
-{
-  "schemaVersion": 1,
-  "apvtsXml": "<CRAY_LDR_PARAMETERS>...</CRAY_LDR_PARAMETERS>",
-  "instrument": { ... }   // null if synth-only preset
-}
-```
-
-The `apvtsXml` field is the JUCE APVTS XML tree serialized as a string. The `instrument` field is an `InstrumentDefinition::toJson()` object.
-
-### Migration Strategy
-
-On load, `setStateInformation` reads `schemaVersion`. If the version is higher than the current code understands, all missing parameters default to their layout defaults. No crash on unknown schema versions.
-
----
-
-## File Format Specifications
-
-### `.craypreset`
+## Audio signal path
 
 ```
-{
-  "schemaVersion": integer,
-  "name": string,
-  "author": string,
-  "category": string,       // one of the 8 category names
-  "bank": string,
-  "tags": string,           // space-separated
-  "isFactory": bool,
-  "apvtsXml": string,       // JUCE ValueTree XML
-  "instrument": object|null // InstrumentDefinition JSON, or null
-}
+MIDI / UI audition queue
+        |
+        v
+    VoiceManager <---- APVTS parameters
+      |       |
+      |       +---- SampleVoice -> compiled sample zones
+      |
+      +------------ SynthVoice -> oscillators / unison / envelopes / filter
+        |
+        v
+     EffectsChain
+ EQ -> Saturation/Distortion -> Chorus -> Delay -> Reverb
+        |
+        v
+  master gain / output telemetry
 ```
 
-### `.crayinst`
+The processor currently exposes stereo output and MIDI input. The audio engine clears the output buffer and renders the instrument; it is not an insert effect that mixes the incoming audio.
 
-Identical to `InstrumentDefinition::toJson()`. Contains:
-- `id`, `name`, `author`, `category`, `tags`
-- `zones[]` — array of `SampleZoneSpec` objects with:
-  - `filePath` (relative to the `.crayinst` file, or absolute)
-  - `rootNote`, `keyLo`, `keyHi`, `velLo`, `velHi`, `layer`
-  - `pitchOffsetSemitones`, `startFrame`, `endFrame`
-  - `loopEnabled`, `loopStart`, `loopEnd`, `crossfadeFrames`
-  - `reverse`, `gain`, `pan`
-  - `adsrA`, `adsrD`, `adsrS`, `adsrR`
-  - `filterEnabled`, `filterCutoff`, `filterResonance`
+## Audio-thread responsibilities
 
-### `.craypack`
+The intended audio path is `PluginProcessor::processBlock` -> `AudioEngine::processBlock` -> voice rendering and effects.
 
-A standard ZIP archive with the following structure:
-```
-preset.craypreset
-samples/
-  <relative-path-to-sample-1.wav>
-  <relative-path-to-sample-2.wav>
-  ...
-```
-File paths inside `preset.craypreset` are rewritten to be relative to `samples/` on export, and restored on import.
+- Sample decoding and instrument compilation occur outside the audio callback.
+- UI audition events are passed through a bounded SPSC queue.
+- Telemetry is communicated through atomics.
+- Sample instruments are published through an atomic raw pointer while shared ownership is retained by the processor-side owner list.
+- Each active sample voice pins the compiled instrument through its audio reference counter.
+- A JUCE timer on the message thread calls `collectGarbage()` to reclaim retired snapshots.
+- The audio callback does not acquire `instrumentOwnerMutex_`; publication and reclamation serialize on non-audio threads.
 
----
+**Important:** this is the current ownership design, not a completed concurrency proof. The hazard-pointer publication/reclamation protocol and voice pin/unpin lifecycle still require stress testing, race detection where available, and host shutdown/reload tests. Do not advertise the plugin as formally lock-free or fully real-time safe until that work is complete.
 
-## Threading Model
+## Synth and sampler
 
-| Thread | Responsibility |
-|--------|---------------|
-| Audio thread | `AudioEngine::process`, `VoiceManager`, `SynthVoice`, `SampleVoice`, `EffectsChain` |
-| Message thread | UI events, library browsing, sample loading, instrument building, preset save/load |
-| Timer thread (200ms) | GC of old `CompiledSampleInstrument` objects, telemetry polling |
-| JUCE audio thread | Calls `PluginProcessor::processBlock`, which delegates to `AudioEngine` |
+### Synth
 
-Communication audio←→message uses only:
-- `std::atomic<>` pointer swap (instrument swap)
-- `LockFreeQueue<MidiEvent>` SPSC queue (UI→audio MIDI events)
-- `AudioTelemetry` struct of atomics (peak meters, voice counts)
+The source includes four PolyBLEP oscillator paths, unison banks, amplitude/filter envelopes, a state-variable filter, dual LFOs and a modulation matrix. The voice manager supports polyphonic and monophonic/legato operation, voice stealing, sustain pedal, pitch bend, mod wheel and aftertouch.
 
----
+### Sample engine
 
-## Known Limitations (v1.0.0)
+The instrument definition stores zones with:
+- source file, root note, key range and velocity range;
+- layer assignment and gain;
+- sample start/end, reverse and loop points/crossfade;
+- pitch/fine tune, pan and fades;
+- per-zone amplitude envelope and filter.
 
-| Area | Note |
-|------|------|
-| Sample formats | OGG/Vorbis not included (JUCE_USE_OGGVORBIS=0); add it in CMakeLists to enable |
-| ARA2 | Not supported |
-| MPE | Not supported in v1; planned for v1.2 |
-| macOS / Linux | Build system supports them in principle; not tested or packaged |
-| VST2 | Not provided; VST2 SDK is deprecated |
+WAV, AIFF and FLAC decoding is enabled. Samples are decoded and compiled before publication to the audio engine. The sample voice uses cubic Hermite interpolation.
+
+The current factory presets do not include factory sample content. The sample engine and instrument builder need dedicated tests with short/long files, mono/stereo files, mismatched sample rates, invalid loop points, missing paths, velocity splits and overlapping zones.
+
+## Effects
+
+The effects chain contains four-band parametric EQ, saturation/distortion, stereo chorus, stereo delay and algorithmic reverb. Parameters are read from APVTS and applied to the DSP modules during audio processing. Verify parameter smoothing, coefficient-update cost and denormal/CPU behavior under automation before release.
+
+## State and presets
+
+The processor stores a JSON envelope containing:
+- `schemaVersion`;
+- preset metadata;
+- APVTS state serialized as XML text;
+- the active `InstrumentDefinition` JSON object.
+
+Preset files contain the same parameter state plus metadata and an instrument definition. Instrument/sample paths may be absolute or relative to the file's directory. Portable-pack code copies referenced samples into the package.
+
+Loading validates the JSON root, schema version, APVTS XML root/type and instrument JSON before replacing the live APVTS state. Further acceptance tests are required for malformed data, old schema versions, missing samples, relative paths, portable-pack traversal safety and repeated project restore.
+
+## UI
+
+The editor contains Main, Edit, Sample Editor, Instrument Builder and Effects views, plus shared header/browser components. UI components are JUCE controls and attachments; each control still needs a control-to-DSP audit. A visible control is not evidence that its intended behavior is complete.
+
+## CI and release status
+
+The Windows GitHub Actions workflow:
+1. checks out the source;
+2. obtains JUCE 8.0.6;
+3. configures Visual Studio 2022 x64;
+4. builds Release VST3 and Standalone targets;
+5. verifies that the VST3 bundle contains at least eight factory preset files;
+6. validates preset JSON and APVTS parameter IDs;
+7. uploads the VST3 bundle.
+
+The workflow currently sets `CRAY_BUILD_TESTS=OFF` because the legacy test sources need porting to the current API. A green build therefore means **compile/package success only**. It does not mean unit tests passed or that FL Studio/Cubase were launched.
+
+## Release acceptance checklist
+
+- [ ] Port and enable the complete JUCE unit-test suite.
+- [ ] Add malformed preset/state and save/reopen tests.
+- [ ] Stress-test instrument replacement, voice stealing, repeated note-on/off and editor close/reopen.
+- [ ] Verify no allocation, lock or file access in the audio callback.
+- [ ] Test sample mapping, velocity layers, loops, reverse, fades and relinking.
+- [ ] Audit every UI control against its DSP destination.
+- [ ] Create and audition the factory multisample library.
+- [ ] Test FL Studio and Cubase VST3 scanning, MIDI, automation, preset loading, project restore and shutdown.
+- [ ] Measure CPU at 44.1/48/96 kHz and 64/128/256/512 sample blocks.
+- [ ] Finish installer, docs, license audit and release signing.

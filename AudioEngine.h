@@ -10,6 +10,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace cray
@@ -32,7 +33,7 @@ namespace cray
         void prepare(double sampleRate, int samplesPerBlock);
         void reset();
 
-        /** Publish a new compiled sample instrument from message/worker thread (lock-free). */
+        /** Publish a new compiled sample instrument from a non-audio thread. */
         void setSampleInstrument(std::shared_ptr<const CompiledSampleInstrument> newInstrument);
 
         /** Reap retired sample instruments whose audioRefCount has reached 0 (call from message thread timer). */
@@ -41,7 +42,7 @@ namespace cray
         /** Push a note event from GUI virtual keyboard or Sample Editor audition button. */
         void pushUiMidiEvent(int midiNote, float velocity01, bool isNoteOn) noexcept;
 
-        /** Process a full audio+MIDI block (real-time safe: zero locks, zero heap allocations). */
+        /** Process a full audio+MIDI block; audio-path real-time behavior must be stress-tested. */
         void processBlock(juce::AudioBuffer<float>& buffer,
                           juce::MidiBuffer& midiMessages,
                           const juce::AudioProcessorValueTreeState& apvts,
@@ -66,6 +67,12 @@ namespace cray
 
         // Lock-free atomic pointer + message-thread retention list
         std::atomic<const CompiledSampleInstrument*> activeInstrumentPtr_{ nullptr };
+        // Hazard pointer protects the load-to-retain window at the start of an audio block.
+        // A voice then takes its own audioRefCount pin before this block-level hazard is cleared.
+        std::atomic<const CompiledSampleInstrument*> audioHazardPtr_{ nullptr };
+        // Serialises message/worker-thread publication against timer-thread reclamation.
+        // The audio thread never takes this mutex; it uses the hazard pointer above.
+        std::mutex instrumentOwnerMutex_;
         std::shared_ptr<const CompiledSampleInstrument> currentInstrumentOwner_;
         std::vector<std::shared_ptr<const CompiledSampleInstrument>> retiredInstruments_;
 

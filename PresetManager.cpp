@@ -10,7 +10,7 @@ namespace cray
 
     bool PresetManager::savePresetToFile(const juce::File& targetFile,
                                          const PresetMetadata& meta,
-                                         const juce::AudioProcessorValueTreeState& apvts,
+                                         juce::AudioProcessorValueTreeState& apvts,
                                          const InstrumentDefinition& instrument)
     {
         // Protect Factory Library from accidental overwrites
@@ -70,6 +70,52 @@ namespace cray
             return res;
         }
 
+        const int schemaVersion = static_cast<int>(root->getProperty("schemaVersion"));
+        if (schemaVersion < 1 || schemaVersion > ProductInfo::kStateSchemaVersion)
+        {
+            res.statusMessage = "Unsupported preset schema version: " + juce::String(schemaVersion);
+            return res;
+        }
+
+        // Validate the complete preset before mutating APVTS. A malformed file must
+        // never partially replace the currently loaded sound or leave stale parameters.
+        const auto xmlStr = root->getProperty("apvtsXml").toString();
+        if (xmlStr.isEmpty())
+        {
+            res.statusMessage = "Preset is missing its parameter state: " + file.getFileName();
+            return res;
+        }
+
+        auto xml = juce::XmlDocument::parse(xmlStr);
+        if (xml == nullptr)
+        {
+            res.statusMessage = "Preset contains invalid parameter XML: " + file.getFileName();
+            return res;
+        }
+
+        auto parameterTree = juce::ValueTree::fromXml(*xml);
+        if (!parameterTree.isValid() || !parameterTree.hasType(apvts.state.getType()))
+        {
+            res.statusMessage = "Preset parameter state is incompatible: " + file.getFileName();
+            return res;
+        }
+
+        InstrumentDefinition candidateInstrument;
+        // A null instrument is a valid synth-only preset. Factory synth patches use
+        // this representation; only non-null values must decode as an instrument.
+        if (root->hasProperty("instrument"))
+        {
+            const auto instrumentValue = root->getProperty("instrument");
+            if (!instrumentValue.isVoid()
+                && !InstrumentDefinition::fromJson(instrumentValue,
+                                                   candidateInstrument,
+                                                   file.getParentDirectory()))
+            {
+                res.statusMessage = "Preset contains an invalid instrument definition: " + file.getFileName();
+                return res;
+            }
+        }
+
         res.metadata.name      = root->getProperty("name").toString();
         res.metadata.author    = root->getProperty("author").toString();
         res.metadata.category  = categoryFromString(root->getProperty("category").toString());
@@ -77,25 +123,14 @@ namespace cray
         res.metadata.tags      = root->getProperty("tags").toString();
         res.metadata.isFactory = static_cast<bool>(root->getProperty("isFactory"));
 
-        const auto xmlStr = root->getProperty("apvtsXml").toString();
-        if (xmlStr.isNotEmpty())
-        {
-            if (auto xml = juce::XmlDocument::parse(xmlStr))
-            {
-                auto tree = juce::ValueTree::fromXml(*xml);
-                if (tree.isValid() && tree.hasType(apvts.state.getType()))
-                    apvts.replaceState(tree);
-            }
-        }
+        // Commit the validated state only after every required component passed.
+        apvts.replaceState(parameterTree);
+        res.instrument = std::move(candidateInstrument);
 
-        if (root->hasProperty("instrument"))
+        for (const auto& z : res.instrument.zones)
         {
-            InstrumentDefinition::fromJson(root->getProperty("instrument"), res.instrument, file.getParentDirectory());
-            for (const auto& z : res.instrument.zones)
-            {
-                if (z.missingSourceFile || !juce::File(z.sourceFilePath).existsAsFile())
-                    res.missingSamples.addIfNotAlreadyThere(z.sourceFilePath);
-            }
+            if (z.missingSourceFile || !juce::File(z.sourceFilePath).existsAsFile())
+                res.missingSamples.addIfNotAlreadyThere(z.sourceFilePath);
         }
 
         res.success = true;
@@ -107,7 +142,7 @@ namespace cray
 
     bool PresetManager::exportPortablePack(const juce::File& packFile,
                                            const PresetMetadata& meta,
-                                           const juce::AudioProcessorValueTreeState& apvts,
+                                           juce::AudioProcessorValueTreeState& apvts,
                                            const InstrumentDefinition& instrument)
     {
         const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
@@ -116,18 +151,28 @@ namespace cray
         const auto samplesDir = tempDir.getChildFile("Samples");
         samplesDir.createDirectory();
 
-        // Clone instrument & copy referenced samples into Samples/ with relative paths
+        // Clone the definition and require every referenced sample to be packaged.
+        // Never silently create a portable pack that still points to the author's disk.
         InstrumentDefinition portableInst = instrument;
         for (auto& z : portableInst.zones)
         {
             const juce::File src(z.sourceFilePath);
-            if (src.existsAsFile())
+            if (!src.existsAsFile())
             {
-                const auto dest = samplesDir.getNonexistentChildFile(src.getFileNameWithoutExtension(),
-                                                                     src.getFileExtension(), false);
-                if (src.copyFileTo(dest))
-                    z.sourceFilePath = "Samples/" + dest.getFileName();
+                tempDir.deleteRecursively();
+                return false;
             }
+
+            const auto dest = samplesDir.getNonexistentChildFile(src.getFileNameWithoutExtension(),
+                                                                 src.getFileExtension(), false);
+            if (!src.copyFileTo(dest) || !dest.existsAsFile() || dest.getSize() != src.getSize())
+            {
+                tempDir.deleteRecursively();
+                return false;
+            }
+
+            z.sourceFilePath = "Samples/" + dest.getFileName();
+            z.missingSourceFile = false;
         }
 
         auto* root = new juce::DynamicObject();
@@ -180,6 +225,57 @@ namespace cray
         {
             res.statusMessage = "Invalid or empty .craypack archive.";
             return res;
+        }
+
+        // Bound archive expansion before extraction to reduce zip-bomb / disk exhaustion risk.
+        constexpr int kMaxPackEntries = 4096;
+        constexpr juce::int64 kMaxPackEntryBytes = 512LL * 1024LL * 1024LL;
+        constexpr juce::int64 kMaxPackTotalBytes = 2LL * 1024LL * 1024LL * 1024LL;
+        if (zip.getNumEntries() > kMaxPackEntries)
+        {
+            res.statusMessage = "Pack contains too many entries.";
+            return res;
+        }
+
+        juce::int64 totalUncompressedBytes = 0;
+
+        // Reject absolute paths and parent traversal before asking JUCE to extract.
+        // This prevents a crafted archive from writing outside the selected library folder.
+        for (int i = 0; i < zip.getNumEntries(); ++i)
+        {
+            const auto* entry = zip.getEntry(i);
+            if (entry == nullptr)
+            {
+                res.statusMessage = "Pack contains an unreadable archive entry.";
+                return res;
+            }
+
+            const auto entryBytes = static_cast<juce::int64>(entry->uncompressedSize);
+            if (entryBytes > kMaxPackEntryBytes
+                || totalUncompressedBytes > kMaxPackTotalBytes - entryBytes)
+            {
+                res.statusMessage = "Pack exceeds the allowed uncompressed size.";
+                return res;
+            }
+            totalUncompressedBytes += entryBytes;
+
+            const auto entryPath = entry->filename.replaceCharacter('\\', '/');
+            if (entryPath.isEmpty() || entryPath.startsWithChar('/')
+                || juce::File::isAbsolutePath(entryPath) || entryPath.contains(":"))
+            {
+                res.statusMessage = "Pack contains an unsafe absolute archive path.";
+                return res;
+            }
+
+            const auto parts = juce::StringArray::fromTokens(entryPath, "/", "");
+            for (const auto& part : parts)
+            {
+                if (part == ".." || part == ".")
+                {
+                    res.statusMessage = "Pack contains an unsafe relative archive path.";
+                    return res;
+                }
+            }
         }
 
         const auto targetDir = extractSamplesDir.getChildFile(

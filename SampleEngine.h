@@ -57,6 +57,13 @@ namespace cray
             int64_t       samplesRendered  = 0;
             AhdsrEnvelope env;
             ZdfSvfFilter  filter;
+
+            // Filter coefficients are expensive (tan/pow); the modulation sources are
+            // block-rate here, so recalculate only when their effective inputs change.
+            bool          filterParamsValid = false;
+            float         lastCutoffMod = 0.0f;
+            float         lastResonanceMod = 0.0f;
+            SvfFilterType lastFilterType = SvfFilterType::LowPass12;
         };
 
         void releasePinnedInstrument() noexcept;

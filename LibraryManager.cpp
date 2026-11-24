@@ -1,6 +1,9 @@
 #include "Library/LibraryManager.h"
 #include "Common/ProductInfo.h"
 #include <algorithm>
+#if JUCE_WINDOWS
+ #include <windows.h>
+#endif
 
 namespace cray
 {
@@ -11,6 +14,37 @@ namespace cray
 
     juce::File LibraryManager::resolveDefaultFactoryRoot()
     {
+#if JUCE_WINDOWS
+        // In a VST3 host, currentExecutableFile points to the DAW, not this plugin DLL.
+        static const int moduleAnchor = 0;
+        HMODULE moduleHandle = nullptr;
+        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               reinterpret_cast<LPCWSTR>(&moduleAnchor),
+                               &moduleHandle) != 0)
+        {
+            wchar_t modulePath[32768] {};
+            const auto length = GetModuleFileNameW(moduleHandle, modulePath,
+                                                    static_cast<DWORD>(sizeof(modulePath) / sizeof(modulePath[0])));
+            if (length > 0 && length < (sizeof(modulePath) / sizeof(modulePath[0])))
+            {
+                const auto moduleDir = juce::File(juce::String(modulePath)).getParentDirectory();
+
+                // VST3 resources are stored in the bundle's Contents/Resources directory.
+                if (moduleDir.getFileName().equalsIgnoreCase("x86_64-win"))
+                {
+                    const auto bundleResources = moduleDir.getParentDirectory().getChildFile("Resources");
+                    if (bundleResources.isDirectory())
+                        return bundleResources;
+                }
+
+                // Standalone resources are stored beside the executable.
+                const auto siblingResources = moduleDir.getChildFile("Resources");
+                if (siblingResources.isDirectory())
+                    return siblingResources;
+            }
+        }
+#endif
         const auto exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
         const auto siblingRes = exeDir.getChildFile("Resources");
         if (siblingRes.isDirectory())
@@ -20,11 +54,10 @@ namespace cray
         if (parentRes.isDirectory())
             return parentRes;
 
-        const auto commonAppData = juce::File::getSpecialLocation(juce::File::commonApplicationDataDirectory)
-                                       .getChildFile("CRAY LDR")
-                                       .getChildFile("CRAY LDR URBAN INSTRUMENTS")
-                                       .getChildFile("FactoryLibrary");
-        return commonAppData;
+        return juce::File::getSpecialLocation(juce::File::commonApplicationDataDirectory)
+            .getChildFile("CRAY LDR")
+            .getChildFile("CRAY LDR URBAN INSTRUMENTS")
+            .getChildFile("FactoryLibrary");
     }
 
     juce::File LibraryManager::resolveDefaultConfigFile()
