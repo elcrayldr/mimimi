@@ -232,7 +232,7 @@ namespace cray
                 return res;
             }
 
-            const auto entryPath = entry->filename.replaceCharacter('\\\\', '/');
+            const auto entryPath = entry->filename.replaceCharacter('\\', '/');
             if (entryPath.isEmpty() || entryPath.startsWithChar('/')
                 || juce::File::isAbsolutePath(entryPath) || entryPath.contains(":"))
             {
