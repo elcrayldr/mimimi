@@ -2,6 +2,7 @@
 """Validate factory preset manifests before packaging the VST3 bundle."""
 import json
 import pathlib
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -12,11 +13,11 @@ if len(files) < 8:
 
 # Build the valid APVTS parameter-ID set from the same declarations used by C++.
 header = (pathlib.Path(__file__).resolve().parent.parent / "ParameterIDs.h").read_text(encoding="utf-8")
-valid_ids = set(re.findall(r'inline constexpr const char\\*\\s+\\w+\\s*=\\s*"([^"]+)"', header))
-for match in re.finditer(
-    r'inline juce::String\\s+(\\w+)\\(int \\w+\\)\\s*\\{\\s*return "([^"]*)"\\s*\\+\\s*juce::String\\(\\w+\\s*\\+\\s*1\\)\\s*\\+\\s*"([^"]*)";',
-    header,
-):
+valid_ids = set(re.findall(r'inline constexpr const char\*\s+\w+\s*=\s*"([^"]+)"', header))
+dynamic_id = re.compile(
+    r'inline juce::String\s+(\w+)\(int \w+\)\s*\{\s*return "([^"]*)"\s*\+\s*juce::String\(\w+\s*\+\s*1\)\s*\+\s*"([^"]*)";'
+)
+for match in dynamic_id.finditer(header):
     function, prefix, suffix = match.groups()
     count = 4 if function.startswith("osc") else 2 if function.startswith("lfo") else 8
     valid_ids.update(f"{prefix}{index}{suffix}" for index in range(1, count + 1))
