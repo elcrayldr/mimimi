@@ -28,8 +28,7 @@ namespace cray
                                                     static_cast<DWORD>(sizeof(modulePath) / sizeof(modulePath[0])));
             if (length > 0 && length < (sizeof(modulePath) / sizeof(modulePath[0])))
             {
-                const auto moduleDir = juce::File(juce::String::fromUTF16(
-                    reinterpret_cast<const juce::juce_wchar*>(modulePath))).getParentDirectory();
+                const auto moduleDir = juce::File(juce::String(modulePath)).getParentDirectory();
 
                 // VST3 resources are stored in the bundle's Contents/Resources directory.
                 if (moduleDir.getFileName().equalsIgnoreCase("x86_64-win"))
