@@ -53,6 +53,8 @@ jobs:
             throw "Expected at least 8 factory presets in $presetDir, found $($presets.Count)."
           }
           Write-Host "Verified $($presets.Count) factory presets in the VST3 bundle."
+          python scripts/validate_factory_presets.py "$presetDir"
+          if ($LASTEXITCODE -ne 0) { throw "Factory preset manifest validation failed." }
           "VST3_PATH=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Upload VST3
