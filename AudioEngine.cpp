@@ -126,6 +126,23 @@ namespace cray
         smp.pitchSemis     = static_cast<int>(loadParam(apvts, ParamIDs::samplePitch, 0.0f));
         smp.fineCents      = loadParam(apvts, ParamIDs::sampleFine, 0.0f);
         smp.velSensitivity = sp.velSensitivity;
+        smp.ampAttack = sp.ampAttack;
+        smp.ampDecay = sp.ampDecay;
+        smp.ampSustain = sp.ampSustain;
+        smp.ampRelease = sp.ampRelease;
+        smp.filterEnabled = sp.filterEnabled;
+        smp.filterType = sp.filterType;
+        smp.filterCutoffHz = sp.filterCutoffHz;
+        smp.filterResonance = sp.filterResonance;
+        smp.filterKeyTrack = sp.filterKeyTrack;
+        smp.filterEnvAmount = sp.filterEnvAmount;
+        smp.filterAttack = sp.filterAttack;
+        smp.filterDecay = sp.filterDecay;
+        smp.filterSustain = sp.filterSustain;
+        smp.filterRelease = sp.filterRelease;
+        smp.lfo1ToPitch = sp.lfo1ToPitch;
+        smp.lfo1ToCutoff = sp.lfo1ToCutoff;
+        smp.lfo1ToAmp = sp.lfo1ToAmp;
 
         voiceManager_.setPerformanceParams(perf, sp, smp);
 
