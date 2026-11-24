@@ -49,6 +49,9 @@ namespace cray
                            float depth01,
                            bool retriggerEnabled) noexcept;
 
+        // Block-rate modulation in octaves; -1..+1 spans four octaves either way.
+        void setRateModulation(float octaveOffset) noexcept;
+
         float processSample() noexcept;
         float getCurrentValue() const noexcept { return currentValue_; }
 
@@ -58,6 +61,7 @@ namespace cray
         double            sampleRate_       = 44100.0;
         LfoWaveform       waveform_         = LfoWaveform::Sine;
         float             phase_            = 0.0f;
+        float             basePhaseInc_     = 0.0001f;
         float             phaseInc_         = 0.0001f;
         float             depth_            = 1.0f;
         bool              retriggerEnabled_ = false;
