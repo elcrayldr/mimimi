@@ -10,6 +10,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace cray
@@ -69,6 +70,9 @@ namespace cray
         // Hazard pointer protects the load-to-retain window at the start of an audio block.
         // A voice then takes its own audioRefCount pin before this block-level hazard is cleared.
         std::atomic<const CompiledSampleInstrument*> audioHazardPtr_{ nullptr };
+        // Serialises message/worker-thread publication against timer-thread reclamation.
+        // The audio thread never takes this mutex; it uses the hazard pointer above.
+        std::mutex instrumentOwnerMutex_;
         std::shared_ptr<const CompiledSampleInstrument> currentInstrumentOwner_;
         std::vector<std::shared_ptr<const CompiledSampleInstrument>> retiredInstruments_;
 
