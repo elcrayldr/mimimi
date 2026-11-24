@@ -48,7 +48,10 @@ namespace cray
         for (auto& s : slots_)
         {
             if (s.inUse)
+            {
                 s.synthVoice.updateEnvelopes(synthParams_);
+                s.sampleVoice.updateEnvelopes(sampleParams_);
+            }
         }
     }
 
@@ -444,7 +447,21 @@ namespace cray
             if (runSample && slot.sampleVoice.isActive())
             {
                 float mL = 0.0f, mR = 0.0f;
-                slot.sampleVoice.renderSample(sampleParams_, slot.currentNote, pbSemis, globalModOffsets, mL, mR);
+                ModInputContext sampleCtx;
+                sampleCtx.lfo1 = lfo1Val;
+                sampleCtx.lfo2 = lfo2Val;
+                sampleCtx.ampEnv = slot.sampleVoice.getEnvLevel();
+                sampleCtx.filterEnv = slot.sampleVoice.getFilterEnvLevel();
+                sampleCtx.modWheel = modWheel_;
+                sampleCtx.velocity = slot.sampleVoice.getVelocity();
+                sampleCtx.keyTrack = (slot.currentNote - 60.0f) / 60.0f;
+                sampleCtx.pitchBend = pbSemis / 24.0f;
+                sampleCtx.aftertouch = aftertouch_;
+                ModOffsets sampleOffsets{};
+                modMatrix.evaluate(sampleCtx, sampleOffsets);
+                auto sampleParams = sampleParams_;
+                sampleParams.lfo1Value = lfo1Val;
+                slot.sampleVoice.renderSample(sampleParams, slot.currentNote, pbSemis, sampleOffsets, mL, mR);
                 sumL += mL * perf_.sampleMix;
                 sumR += mR * perf_.sampleMix;
                 if (slot.sampleVoice.isActive())
