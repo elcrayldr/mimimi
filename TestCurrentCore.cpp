@@ -19,6 +19,7 @@ namespace
             testEnvelopeLifecycle();
             testInstrumentDefinitionRoundTrip();
             testSampleVoicePlaybackAndPinning();
+            testSampleVoiceLoopFilterAndRelease();
         }
 
     private:
@@ -96,6 +97,71 @@ namespace
                            "Relative sample path changed during round-trip");
                 }
             }
+        }
+
+        void testSampleVoiceLoopFilterAndRelease()
+        {
+            beginTest("SampleVoice loops with filtering and stops after envelope release");
+            auto sample = std::make_shared<cray::SampleBuffer>();
+            sample->sampleRate = 48000.0;
+            sample->numChannels = 1;
+            sample->numSamples = 4096;
+            sample->audio.setSize(1, sample->numSamples);
+            auto* data = sample->audio.getWritePointer(0);
+            for (int i = 0; i < sample->numSamples; ++i)
+                data[i] = 0.2f * std::sin(juce::MathConstants<double>::twoPi * 220.0 * i / 48000.0);
+
+            cray::CompiledSampleInstrument instrument;
+            instrument.layerEnabled.push_back(true);
+            instrument.layerGain.push_back(1.0f);
+
+            cray::CompiledSampleZone zone;
+            zone.sample = sample;
+            zone.layerIndex = 0;
+            zone.rootNote = 57;
+            zone.lowKey = 0;
+            zone.highKey = 127;
+            zone.lowVelocity = 1;
+            zone.highVelocity = 127;
+            zone.startSample = 0;
+            zone.endSample = sample->numSamples - 1;
+            zone.loopEnabled = true;
+            zone.loopStartSample = 256;
+            zone.loopEndSample = 2048;
+            zone.loopCrossfade = 128;
+            zone.filterEnabled = true;
+            zone.filterType = cray::SvfFilterType::LowPass12;
+            zone.filterCutoffHz = 9000.0f;
+            zone.filterResonance = 0.25f;
+            zone.attackSec = 0.001f;
+            zone.decaySec = 0.01f;
+            zone.sustainLevel = 0.8f;
+            zone.releaseSec = 0.01f;
+            instrument.zones.push_back(zone);
+
+            cray::SampleVoice voice;
+            voice.prepare(48000.0);
+            voice.startNote(&instrument, 57, 1.0f, false);
+            expect(voice.isActive(), "Looping sample voice did not start");
+
+            cray::ModOffsets offsets{};
+            cray::SampleGlobalParams params;
+            for (int i = 0; i < 1024; ++i)
+            {
+                float left = 0.0f, right = 0.0f;
+                voice.renderSample(params, 57.0f, 0.0f, offsets, left, right);
+                expect(std::isfinite(left) && std::isfinite(right), "Filtered loop produced NaN/Inf");
+            }
+
+            expect(voice.isActive(), "Looped sample stopped before note-off");
+            voice.releaseNote();
+            for (int i = 0; i < 4096 && voice.isActive(); ++i)
+            {
+                float left = 0.0f, right = 0.0f;
+                voice.renderSample(params, 57.0f, 0.0f, offsets, left, right);
+            }
+            expect(!voice.isActive(), "Looped sample did not stop after release envelope");
+            expectEquals(instrument.audioRefCount.load(), 0);
         }
 
         void testSampleVoicePlaybackAndPinning()
