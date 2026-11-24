@@ -43,7 +43,7 @@ cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
   -DJUCE_DIR="C:/SDK/JUCE" -DCRAY_BUILD_TESTS=OFF
 ```
 
-The automated Windows workflow currently builds the VST3 and Standalone targets with the legacy unit-test target disabled. The test sources still require porting and must not be considered passing.
+The automated Windows workflow builds the VST3 and Standalone targets and runs the current focused core test executable. The older test translation units remain excluded because they target obsolete interfaces; the current tests are useful smoke/unit coverage, not complete release acceptance.
 
 ## VST3 bundle
 
@@ -77,7 +77,7 @@ Sample paths can be relative to the preset/instrument directory or absolute. Mov
 
 ## Known release blockers
 
-1. Port and enable the unit-test suite; add tests for malformed presets, state restore, sample-zone mapping, resampling, loops and voice lifecycle.
+1. Expand the current focused test suite and port the legacy tests; add coverage for malformed presets, synth-only preset loading, full state restore, sample-zone mapping, resampling, loops and voice lifecycle.
 2. Audit the sample-instrument ownership/hazard-pointer protocol with stress tests and sanitizers where available.
 3. Verify that the audio callback performs no heap allocations, locks or file I/O under realistic host block sizes and automation.
 4. Validate every UI control against the DSP parameter it is meant to control; remove or implement any decorative/nonfunctional controls.
