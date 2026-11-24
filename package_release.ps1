@@ -1,218 +1,162 @@
-﻿# ============================================================================
-# CRAY LDR URBAN INSTRUMENTS — Release Packaging Script
-# scripts\package_release.ps1
+#requires -Version 5.1
+# ============================================================================
+# CRAY LDR URBAN INSTRUMENTS — Windows x64 Release Packaging
 #
-# Usage:
-#   cd <repo-root>
-#   .\scripts\package_release.ps1
+# Run from any directory:
+#   .\package_release.ps1
 #
-# Optional parameters:
-#   -JuceDir     "C:\path\to\JUCE"   (skip FetchContent download)
-#   -Version     "1.0.0"             (override version string)
-#   -BuildType   "Release"
-#   -OutDir      ".\dist"
+# Optional:
+#   -JuceDir "C:\SDK\JUCE"
+#   -Version "1.0.2"
+#   -BuildType Release
+#   -OutDir ".\dist"
 #
-# Requirements:
-#   • CMake 3.22+ on PATH
-#   • Visual Studio 2022 (VS17 2022) installed
-#   • 7-Zip OR the PowerShell Compress-Archive fallback
+# Requirements: Windows 10/11, PowerShell 5.1+, CMake 3.22+,
+# Visual Studio 2022 C++ workload, Python 3, and 7-Zip (optional).
 # ============================================================================
 
 [CmdletBinding()]
 param(
-    [string] $JuceDir   = "",
-    [string] $Version   = "1.0.0",
+    [string] $JuceDir = "",
+    [string] $Version = "1.0.2",
+    [ValidateSet("Release", "RelWithDebInfo")]
     [string] $BuildType = "Release",
-    [string] $OutDir    = ".\dist"
+    [string] $OutDir = ".\dist"
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-function Write-Step([string] $msg) {
+function Write-Step([string] $Message) {
     Write-Host ""
-    Write-Host "==> $msg" -ForegroundColor Cyan
+    Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
-function Assert-Command([string] $cmd) {
-    if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
-        Write-Error "$cmd not found on PATH. Please install it and retry."
+function Assert-Command([string] $Name) {
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+        throw "$Name was not found on PATH."
     }
 }
 
-# ---------------------------------------------------------------------------
-# 0. Pre-flight checks
-# ---------------------------------------------------------------------------
-Write-Step "Pre-flight checks"
+$root = $PSScriptRoot
+$buildDir = Join-Path $root "build_release"
+$stageDir = Join-Path $root "staging"
+if ([System.IO.Path]::IsPathRooted($OutDir)) {
+    $outDirPath = [System.IO.Path]::GetFullPath($OutDir)
+} else {
+    $outDirPath = [System.IO.Path]::GetFullPath((Join-Path $root $OutDir))
+}
+$zipName = "CRAY_LDR_Urban_Instruments_v${Version}_Win64.zip"
+$zipPath = Join-Path $outDirPath $zipName
 
+Write-Step "Checking build tools"
 Assert-Command "cmake"
-$cmakeVer = (cmake --version | Select-Object -First 1) -replace "cmake version ",""
-Write-Host "   CMake: $cmakeVer"
+Assert-Command "python"
 
-$vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-if (-not (Test-Path $vsWhere)) {
-    Write-Error "Visual Studio 2022 not found. Install it with the 'Desktop development with C++' workload."
+$vsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+if (-not (Test-Path -LiteralPath $vsWhere)) {
+    throw "Visual Studio Installer (vswhere.exe) was not found. Install Visual Studio 2022 with Desktop development with C++."
 }
 $vsPath = & $vsWhere -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-Write-Host "   VS2022: $vsPath"
+if (-not $vsPath) { throw "A Visual Studio installation with the x64 C++ toolchain was not found." }
+Write-Host "Visual Studio: $vsPath"
 
-# ---------------------------------------------------------------------------
-# 1. Resolve root directory (script lives in scripts\)
-# ---------------------------------------------------------------------------
-$root = (Resolve-Path "$PSScriptRoot\..").Path
-Write-Step "Repository root: $root"
+if (-not (Test-Path -LiteralPath (Join-Path $root "CMakeLists.txt"))) {
+    throw "CMakeLists.txt was not found in repository root: $root"
+}
 
-$buildDir  = Join-Path $root "build_release"
-$stageDir  = Join-Path $root "staging"
-$outDir    = (Join-Path $root $OutDir)
-$zipName   = "CRAY_LDR_Urban_Instruments_v${Version}_Win64.zip"
-$zipPath   = Join-Path $outDir $zipName
-
-# Clean previous staging
-if (Test-Path $stageDir) { Remove-Item $stageDir -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
-New-Item -ItemType Directory -Force -Path $outDir  | Out-Null
-
-# ---------------------------------------------------------------------------
-# 2. CMake Configure
-# ---------------------------------------------------------------------------
-Write-Step "Configuring CMake ($BuildType, x64)"
-
+Write-Step "Configuring CMake (x64 / $BuildType)"
 $cmakeArgs = @(
+    "-S", $root,
     "-B", $buildDir,
     "-G", "Visual Studio 17 2022",
     "-A", "x64",
-    "-DCMAKE_BUILD_TYPE=$BuildType",
     "-DCRAY_BUILD_TESTS=ON",
     "-DCRAY_BUILD_STANDALONE=ON"
 )
-
-if ($JuceDir -ne "" -and (Test-Path $JuceDir)) {
-    $cmakeArgs += @("-DJUCE_DIR=$JuceDir")
-    Write-Host "   Using local JUCE at: $JuceDir"
-} else {
-    Write-Host "   JUCE will be fetched via FetchContent (may take a few minutes on first run)"
+if ($JuceDir) {
+    if (-not (Test-Path -LiteralPath (Join-Path $JuceDir "CMakeLists.txt"))) {
+        throw "JuceDir does not contain JUCE's CMakeLists.txt: $JuceDir"
+    }
+    $cmakeArgs += "-DJUCE_DIR=$JuceDir"
 }
+& cmake @cmakeArgs
+if ($LASTEXITCODE -ne 0) { throw "CMake configure failed with exit code $LASTEXITCODE." }
 
-& cmake $root @cmakeArgs
-if ($LASTEXITCODE -ne 0) { Write-Error "CMake configure failed." }
-
-# ---------------------------------------------------------------------------
-# 3. Build
-# ---------------------------------------------------------------------------
-Write-Step "Building $BuildType"
-
+Write-Step "Building VST3 and Standalone"
 & cmake --build $buildDir --config $BuildType --parallel
-if ($LASTEXITCODE -ne 0) { Write-Error "Build failed." }
+if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE." }
 
-# ---------------------------------------------------------------------------
-# 4. Run Tests
-# ---------------------------------------------------------------------------
-Write-Step "Running unit tests"
+Write-Step "Running automated tests"
+& ctest --test-dir $buildDir -C $BuildType --output-on-failure --timeout 120
+if ($LASTEXITCODE -ne 0) { throw "Unit tests failed. Packaging has been stopped." }
 
-Push-Location $buildDir
-& ctest -C $BuildType --output-on-failure --timeout 120
-$testResult = $LASTEXITCODE
-Pop-Location
+Write-Step "Validating VST3 bundle and factory presets"
+$vst3 = Get-ChildItem -LiteralPath $buildDir -Recurse -Directory -Filter "*.vst3" |
+    Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "Contents\x86_64-win") } |
+    Select-Object -First 1
+if (-not $vst3) { throw "A Windows x64 VST3 bundle was not found in the build output." }
 
-if ($testResult -ne 0) {
-    Write-Warning "Some unit tests failed! Packaging anyway — please fix before distribution."
+$presetDir = Join-Path $vst3.FullName "Contents\Resources\FactoryPresets"
+& python (Join-Path $root "scripts\validate_factory_presets.py") $presetDir
+if ($LASTEXITCODE -ne 0) { throw "Factory preset validation failed." }
+& python (Join-Path $root "scripts\validate_vst3_bundle.py") $vst3.FullName
+if ($LASTEXITCODE -ne 0) { throw "VST3 bundle validation failed." }
+
+Write-Step "Preparing release package"
+if (Test-Path -LiteralPath $stageDir) {
+    Remove-Item -LiteralPath $stageDir -Recurse -Force
+}
+New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+New-Item -ItemType Directory -Path $outDirPath -Force | Out-Null
+
+$vst3Stage = Join-Path $stageDir "VST3"
+New-Item -ItemType Directory -Path $vst3Stage -Force | Out-Null
+Copy-Item -LiteralPath $vst3.FullName -Destination $vst3Stage -Recurse
+
+foreach ($doc in @("README.md", "ARCHITECTURE.md")) {
+    $source = Join-Path $root $doc
+    if (Test-Path -LiteralPath $source) {
+        Copy-Item -LiteralPath $source -Destination $stageDir
+    }
 }
 
-# ---------------------------------------------------------------------------
-# 5. Locate VST3 bundle
-# ---------------------------------------------------------------------------
-Write-Step "Locating VST3 artefact"
-
-$vst3Search = Get-ChildItem -Recurse -Filter "*.vst3" $buildDir `
-              | Where-Object { $_.PSIsContainer } `
-              | Select-Object -First 1
-
-if (-not $vst3Search) {
-    # Also check as a file (single-file VST3)
-    $vst3Search = Get-ChildItem -Recurse -Filter "*.vst3" $buildDir `
-                  | Select-Object -First 1
+# Include the Standalone executable when the configured target produced one.
+$standalone = Get-ChildItem -LiteralPath $buildDir -Recurse -File -Filter "*.exe" |
+    Where-Object { $_.Name -like "*CRAY*" -or $_.Name -like "*Urban*" } |
+    Select-Object -First 1
+if ($standalone) {
+    $standaloneStage = Join-Path $stageDir "Standalone"
+    New-Item -ItemType Directory -Path $standaloneStage -Force | Out-Null
+    Copy-Item -LiteralPath $standalone.FullName -Destination $standaloneStage
 }
 
-if (-not $vst3Search) {
-    Write-Error "Could not find .vst3 in build output. Did the build succeed?"
-}
-Write-Host "   VST3: $($vst3Search.FullName)"
-
-# ---------------------------------------------------------------------------
-# 6. Stage files
-# ---------------------------------------------------------------------------
-Write-Step "Staging release files"
-
-# VST3
-$vst3Dest = Join-Path $stageDir "VST3"
-New-Item -ItemType Directory -Force -Path $vst3Dest | Out-Null
-if ($vst3Search.PSIsContainer) {
-    # Bundle directory
-    Copy-Item $vst3Search.FullName $vst3Dest -Recurse
-} else {
-    Copy-Item $vst3Search.FullName $vst3Dest
-}
-
-# Resources
-$resSrc  = Join-Path $root "Resources"
-$resDest = Join-Path $stageDir "Resources"
-Copy-Item $resSrc $resDest -Recurse
-
-# Standalone (optional)
-$standAloneSearch = Get-ChildItem -Recurse -Filter "*.exe" $buildDir `
-                    | Where-Object { $_.Name -like "*CRAY*" -or $_.Name -like "*Urban*" } `
-                    | Select-Object -First 1
-if ($standAloneSearch) {
-    $standaloneDest = Join-Path $stageDir "Standalone"
-    New-Item -ItemType Directory -Force -Path $standaloneDest | Out-Null
-    Copy-Item $standAloneSearch.FullName $standaloneDest
-    Write-Host "   Standalone: $($standAloneSearch.FullName)"
-}
-
-# Docs
-Copy-Item (Join-Path $root "README.md") $stageDir
-Copy-Item (Join-Path $root "docs")      $stageDir -Recurse
-
-# Version file
 @"
 CRAY LDR URBAN INSTRUMENTS
 Version: $Version
 Build: $BuildType
 Packaged: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 Platform: Windows x64
-"@ | Set-Content (Join-Path $stageDir "VERSION.txt")
+JUCE: 8.0.6
+"@ | Set-Content -LiteralPath (Join-Path $stageDir "VERSION.txt") -Encoding UTF8
 
-# ---------------------------------------------------------------------------
-# 7. Create ZIP
-# ---------------------------------------------------------------------------
-Write-Step "Creating ZIP: $zipName"
-
-if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-
-# Prefer 7-Zip for better compression, fallback to PowerShell built-in
+Write-Step "Creating ZIP archive"
+if (Test-Path -LiteralPath $zipPath) {
+    Remove-Item -LiteralPath $zipPath -Force
+}
 $sevenZip = Get-Command "7z" -ErrorAction SilentlyContinue
-
 if ($sevenZip) {
-    & 7z a -tzip "$zipPath" "$stageDir\*" -mx=5
+    & $sevenZip.Source a -tzip $zipPath (Join-Path $stageDir "*") -mx=5 | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "7-Zip failed with exit code $LASTEXITCODE." }
 } else {
-    Compress-Archive -Path "$stageDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
+    Compress-Archive -Path (Join-Path $stageDir "*") -DestinationPath $zipPath -CompressionLevel Optimal
 }
+if (-not (Test-Path -LiteralPath $zipPath)) { throw "ZIP archive was not created." }
 
-if (-not (Test-Path $zipPath)) {
-    Write-Error "ZIP creation failed."
-}
-
-$zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
-Write-Step "Package complete"
-Write-Host ""
-Write-Host "   Output : $zipPath" -ForegroundColor Green
-Write-Host "   Size   : ${zipSize} MB"      -ForegroundColor Green
-Write-Host ""
-Write-Host "To install, extract the ZIP and copy VST3\ contents to:"
-Write-Host "   C:\Program Files\Common Files\VST3\"
-Write-Host "Then copy Resources\ alongside the .vst3 folder."
-Write-Host ""
+$zipSize = [math]::Round((Get-Item -LiteralPath $zipPath).Length / 1MB, 2)
+Write-Step "Release package created"
+Write-Host "File: $zipPath" -ForegroundColor Green
+Write-Host "Size: $zipSize MB" -ForegroundColor Green
+Write-Host "Install the complete .vst3 folder from VST3 into:"
+Write-Host "  C:\Program Files\Common Files\VST3"
+Write-Host "Then rescan VST3 plugins in your DAW."
