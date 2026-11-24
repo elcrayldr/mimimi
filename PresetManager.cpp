@@ -318,6 +318,10 @@ namespace cray
                 .getChildFile(juce::File::createLegalFileName(res.metadata.name) + ProductInfo::kPresetExtension);
             savePresetToFile(userPresetCopy, res.metadata, apvts, res.instrument);
         }
+        else
+        {
+            targetDir.deleteRecursively();
+        }
         return res;
     }
 
