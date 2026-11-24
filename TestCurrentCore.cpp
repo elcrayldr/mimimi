@@ -148,7 +148,8 @@ namespace
 
             cray::ModOffsets offsets{};
             cray::SampleGlobalParams params;
-            for (int i = 0; i < 1024; ++i)
+            // Render beyond loopEnd so the test exercises an actual wrap and crossfade.
+            for (int i = 0; i < 6000; ++i)
             {
                 float left = 0.0f, right = 0.0f;
                 voice.renderSample(params, 57.0f, 0.0f, offsets, left, right);
