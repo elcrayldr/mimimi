@@ -66,6 +66,9 @@ namespace cray
 
         // Lock-free atomic pointer + message-thread retention list
         std::atomic<const CompiledSampleInstrument*> activeInstrumentPtr_{ nullptr };
+        // Hazard pointer protects the load-to-retain window at the start of an audio block.
+        // A voice then takes its own audioRefCount pin before this block-level hazard is cleared.
+        std::atomic<const CompiledSampleInstrument*> audioHazardPtr_{ nullptr };
         std::shared_ptr<const CompiledSampleInstrument> currentInstrumentOwner_;
         std::vector<std::shared_ptr<const CompiledSampleInstrument>> retiredInstruments_;
 
