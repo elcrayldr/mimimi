@@ -169,42 +169,40 @@ namespace cray
             if (indices.empty())
                 continue;
 
-            std::sort(indices.begin(), indices.end(),
+            std::stable_sort(indices.begin(), indices.end(),
                 [&](size_t a, size_t b)
                 {
                     return draft.zones[a].rootNote < draft.zones[b].rootNote;
                 });
 
-            if (indices.size() == 1)
+            // Group zones sharing the same root note. Velocity-split samples at one
+            // pitch must receive the same key range; otherwise auto-map would split
+            // identical roots across different keyboard regions and make layers vanish.
+            std::vector<std::vector<size_t>> rootGroups;
+            for (const auto index : indices)
             {
-                draft.zones[indices[0]].lowKey  = 0;
-                draft.zones[indices[0]].highKey = 127;
-                continue;
+                if (rootGroups.empty()
+                    || draft.zones[rootGroups.back().front()].rootNote != draft.zones[index].rootNote)
+                    rootGroups.emplace_back();
+
+                rootGroups.back().push_back(index);
             }
 
-            for (size_t idx = 0; idx < indices.size(); ++idx)
+            for (size_t groupIndex = 0; groupIndex < rootGroups.size(); ++groupIndex)
             {
-                auto& z = draft.zones[indices[idx]];
-                if (idx == 0)
-                {
-                    z.lowKey = 0;
-                }
-                else
-                {
-                    const int prevRoot = draft.zones[indices[idx - 1]].rootNote;
-                    const int mid = (prevRoot + z.rootNote) / 2;
-                    z.lowKey = std::clamp(mid + 1, 0, 127);
-                }
+                const int root = draft.zones[rootGroups[groupIndex].front()].rootNote;
+                const int low = (groupIndex == 0)
+                    ? 0
+                    : (draft.zones[rootGroups[groupIndex - 1].front()].rootNote + root) / 2 + 1;
+                const int high = (groupIndex + 1 == rootGroups.size())
+                    ? 127
+                    : (root + draft.zones[rootGroups[groupIndex + 1].front()].rootNote) / 2;
 
-                if (idx + 1 == indices.size())
+                for (const auto zoneIndex : rootGroups[groupIndex])
                 {
-                    z.highKey = 127;
-                }
-                else
-                {
-                    const int nextRoot = draft.zones[indices[idx + 1]].rootNote;
-                    const int mid = (z.rootNote + nextRoot) / 2;
-                    z.highKey = std::clamp(mid, z.lowKey, 127);
+                    auto& zone = draft.zones[zoneIndex];
+                    zone.lowKey = std::clamp(low, 0, 127);
+                    zone.highKey = std::clamp(high, zone.lowKey, 127);
                 }
             }
         }
