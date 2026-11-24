@@ -28,10 +28,8 @@ for path in files:
         legacy = [pid for pid in params if pid.endswith("_waveform")]
         if legacy:
             raise ValueError(f"legacy oscillator parameter IDs: {', '.join(legacy)}")
-        for pid in params:
-            if pid.startswith(("osc1_", "osc2_", "osc3_", "osc4_")) and pid.endswith("_wave"):
-                if not pid[:-5] + "_wave" == pid:
-                    raise ValueError(f"invalid oscillator wave ID: {pid}")
+        if len(params) != len(set(params)):
+            raise ValueError("duplicate APVTS parameter IDs")
     except Exception as exc:
         errors.append(f"{path.name}: {exc}")
 
