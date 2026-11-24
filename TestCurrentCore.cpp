@@ -143,11 +143,16 @@ namespace
 
             cray::SampleVoice voice;
             voice.prepare(48000.0);
+            cray::SampleGlobalParams params;
+            params.ampAttack = 0.001f;
+            params.ampDecay = 0.01f;
+            params.ampSustain = 0.8f;
+            params.ampRelease = 0.01f;
+            voice.updateEnvelopes(params);
             voice.startNote(&instrument, 57, 1.0f, false);
             expect(voice.isActive(), "Looping sample voice did not start");
 
             cray::ModOffsets offsets{};
-            cray::SampleGlobalParams params;
             // Render beyond loopEnd so the test exercises an actual wrap and crossfade.
             for (int i = 0; i < 6000; ++i)
             {
@@ -242,12 +247,13 @@ namespace
 
             cray::SampleVoice voice;
             voice.prepare(44100.0);
+            cray::SampleGlobalParams params;
+            voice.updateEnvelopes(params);
             voice.startNote(&instrument, 69, 1.0f, false);
             expectEquals(instrument.audioRefCount.load(), 1);
             expect(voice.isActive(), "SampleVoice did not activate for a matching zone");
 
             cray::ModOffsets offsets{};
-            cray::SampleGlobalParams params;
             float maxPeak = 0.0f;
             for (int i = 0; i < 512; ++i)
             {
