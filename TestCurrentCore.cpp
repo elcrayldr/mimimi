@@ -1,4 +1,5 @@
 #include <JuceHeader.h>
+#include <cmath>
 
 #include "DSP/Envelopes/AhdsrEnvelope.h"
 #include "DSP/Oscillators/PolyBlepOscillator.h"
