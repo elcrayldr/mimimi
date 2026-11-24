@@ -38,6 +38,8 @@ namespace cray
 
     void AudioEngine::setSampleInstrument(std::shared_ptr<const CompiledSampleInstrument> newInstrument)
     {
+        // Publication and reclamation can originate from different non-audio threads.
+        const std::lock_guard<std::mutex> ownershipLock(instrumentOwnerMutex_);
         if (currentInstrumentOwner_ != nullptr)
             retiredInstruments_.push_back(currentInstrumentOwner_);
 
@@ -47,6 +49,7 @@ namespace cray
 
     void AudioEngine::collectGarbage()
     {
+        const std::lock_guard<std::mutex> ownershipLock(instrumentOwnerMutex_);
         const auto hazard = audioHazardPtr_.load(std::memory_order_seq_cst);
         retiredInstruments_.erase(
             std::remove_if(retiredInstruments_.begin(), retiredInstruments_.end(),
