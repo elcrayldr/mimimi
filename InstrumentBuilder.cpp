@@ -272,6 +272,11 @@ namespace cray
             res.statusMessage += " Warning: " + juce::String(res.compileReport.missingFiles.size())
                                + " missing sample(s).";
         }
+        if (!res.compileReport.errors.isEmpty())
+        {
+            res.statusMessage += " Skipped " + juce::String(res.compileReport.errors.size())
+                               + " invalid sample(s). " + res.compileReport.errors[0];
+        }
         return res;
     }
 }
