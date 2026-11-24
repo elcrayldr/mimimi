@@ -70,6 +70,46 @@ namespace cray
             return res;
         }
 
+        const int schemaVersion = static_cast<int>(root->getProperty("schemaVersion"));
+        if (schemaVersion < 1 || schemaVersion > ProductInfo::kStateSchemaVersion)
+        {
+            res.statusMessage = "Unsupported preset schema version: " + juce::String(schemaVersion);
+            return res;
+        }
+
+        // Validate the complete preset before mutating APVTS. A malformed file must
+        // never partially replace the currently loaded sound or leave stale parameters.
+        const auto xmlStr = root->getProperty("apvtsXml").toString();
+        if (xmlStr.isEmpty())
+        {
+            res.statusMessage = "Preset is missing its parameter state: " + file.getFileName();
+            return res;
+        }
+
+        auto xml = juce::XmlDocument::parse(xmlStr);
+        if (xml == nullptr)
+        {
+            res.statusMessage = "Preset contains invalid parameter XML: " + file.getFileName();
+            return res;
+        }
+
+        auto parameterTree = juce::ValueTree::fromXml(*xml);
+        if (!parameterTree.isValid() || !parameterTree.hasType(apvts.state.getType()))
+        {
+            res.statusMessage = "Preset parameter state is incompatible: " + file.getFileName();
+            return res;
+        }
+
+        InstrumentDefinition candidateInstrument;
+        if (root->hasProperty("instrument")
+            && !InstrumentDefinition::fromJson(root->getProperty("instrument"),
+                                               candidateInstrument,
+                                               file.getParentDirectory()))
+        {
+            res.statusMessage = "Preset contains an invalid instrument definition: " + file.getFileName();
+            return res;
+        }
+
         res.metadata.name      = root->getProperty("name").toString();
         res.metadata.author    = root->getProperty("author").toString();
         res.metadata.category  = categoryFromString(root->getProperty("category").toString());
@@ -77,25 +117,14 @@ namespace cray
         res.metadata.tags      = root->getProperty("tags").toString();
         res.metadata.isFactory = static_cast<bool>(root->getProperty("isFactory"));
 
-        const auto xmlStr = root->getProperty("apvtsXml").toString();
-        if (xmlStr.isNotEmpty())
-        {
-            if (auto xml = juce::XmlDocument::parse(xmlStr))
-            {
-                auto tree = juce::ValueTree::fromXml(*xml);
-                if (tree.isValid() && tree.hasType(apvts.state.getType()))
-                    apvts.replaceState(tree);
-            }
-        }
+        // Commit the validated state only after every required component passed.
+        apvts.replaceState(parameterTree);
+        res.instrument = std::move(candidateInstrument);
 
-        if (root->hasProperty("instrument"))
+        for (const auto& z : res.instrument.zones)
         {
-            InstrumentDefinition::fromJson(root->getProperty("instrument"), res.instrument, file.getParentDirectory());
-            for (const auto& z : res.instrument.zones)
-            {
-                if (z.missingSourceFile || !juce::File(z.sourceFilePath).existsAsFile())
-                    res.missingSamples.addIfNotAlreadyThere(z.sourceFilePath);
-            }
+            if (z.missingSourceFile || !juce::File(z.sourceFilePath).existsAsFile())
+                res.missingSamples.addIfNotAlreadyThere(z.sourceFilePath);
         }
 
         res.success = true;
