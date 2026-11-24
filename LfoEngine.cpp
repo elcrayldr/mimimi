@@ -65,7 +65,14 @@ namespace cray
             effectiveHz = static_cast<float>((bpm / 60.0) / static_cast<double>(beats));
         }
 
-        phaseInc_ = effectiveHz / static_cast<float>(sampleRate_);
+        basePhaseInc_ = effectiveHz / static_cast<float>(sampleRate_);
+        phaseInc_ = basePhaseInc_;
+    }
+
+    void LfoEngine::setRateModulation(float octaveOffset) noexcept
+    {
+        const float safeOffset = DspMath::clamp(octaveOffset, -1.0f, 1.0f);
+        phaseInc_ = basePhaseInc_ * std::exp2(safeOffset * 4.0f);
     }
 
     float LfoEngine::processSample() noexcept
