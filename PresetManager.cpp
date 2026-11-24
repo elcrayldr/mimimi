@@ -145,18 +145,28 @@ namespace cray
         const auto samplesDir = tempDir.getChildFile("Samples");
         samplesDir.createDirectory();
 
-        // Clone instrument & copy referenced samples into Samples/ with relative paths
+        // Clone the definition and require every referenced sample to be packaged.
+        // Never silently create a portable pack that still points to the author's disk.
         InstrumentDefinition portableInst = instrument;
         for (auto& z : portableInst.zones)
         {
             const juce::File src(z.sourceFilePath);
-            if (src.existsAsFile())
+            if (!src.existsAsFile())
             {
-                const auto dest = samplesDir.getNonexistentChildFile(src.getFileNameWithoutExtension(),
-                                                                     src.getFileExtension(), false);
-                if (src.copyFileTo(dest))
-                    z.sourceFilePath = "Samples/" + dest.getFileName();
+                tempDir.deleteRecursively();
+                return false;
             }
+
+            const auto dest = samplesDir.getNonexistentChildFile(src.getFileNameWithoutExtension(),
+                                                                 src.getFileExtension(), false);
+            if (!src.copyFileTo(dest) || !dest.existsAsFile() || dest.getSize() != src.getSize())
+            {
+                tempDir.deleteRecursively();
+                return false;
+            }
+
+            z.sourceFilePath = "Samples/" + dest.getFileName();
+            z.missingSourceFile = false;
         }
 
         auto* root = new juce::DynamicObject();
@@ -209,6 +219,36 @@ namespace cray
         {
             res.statusMessage = "Invalid or empty .craypack archive.";
             return res;
+        }
+
+        // Reject absolute paths and parent traversal before asking JUCE to extract.
+        // This prevents a crafted archive from writing outside the selected library folder.
+        for (int i = 0; i < zip.getNumEntries(); ++i)
+        {
+            const auto* entry = zip.getEntry(i);
+            if (entry == nullptr)
+            {
+                res.statusMessage = "Pack contains an unreadable archive entry.";
+                return res;
+            }
+
+            const auto entryPath = entry->filename.replaceCharacter('\\\\', '/');
+            if (entryPath.isEmpty() || entryPath.startsWithChar('/')
+                || juce::File::isAbsolutePath(entryPath) || entryPath.contains(":"))
+            {
+                res.statusMessage = "Pack contains an unsafe absolute archive path.";
+                return res;
+            }
+
+            const auto parts = juce::StringArray::fromTokens(entryPath, "/", "");
+            for (const auto& part : parts)
+            {
+                if (part == ".." || part == ".")
+                {
+                    res.statusMessage = "Pack contains an unsafe relative archive path.";
+                    return res;
+                }
+            }
         }
 
         const auto targetDir = extractSamplesDir.getChildFile(
