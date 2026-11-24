@@ -95,11 +95,11 @@ The Windows GitHub Actions workflow:
 6. validates preset JSON and APVTS parameter IDs;
 7. uploads the VST3 bundle.
 
-The workflow currently sets `CRAY_BUILD_TESTS=OFF` because the legacy test sources need porting to the current API. A green build therefore means **compile/package success only**. It does not mean unit tests passed or that FL Studio/Cubase were launched.
+The current workflow sets `CRAY_BUILD_TESTS=ON` and builds `TestMain.cpp` plus `TestCurrentCore.cpp`. The focused runner covers oscillator output, envelope lifecycle, instrument-definition round-trip, sample-voice playback/pinning, sample loop/filter/release, and filename-based note detection/key mapping. The other six test translation units in the repository are not yet part of the CMake test target; their APIs and assertions still need review and porting. CI runs CTest and also validates the factory preset manifests and x64 VST3 bundle. A green run therefore confirms **the configured build, focused tests and package checks only**. It does not mean the full test suite passed or that FL Studio/Cubase were launched.
 
 ## Release acceptance checklist
 
-- [ ] Port and enable the complete JUCE unit-test suite.
+- [ ] Review, port and enable the six currently excluded JUCE test translation units; add focused tests for any uncovered behavior.
 - [ ] Add malformed preset/state and save/reopen tests.
 - [ ] Stress-test instrument replacement, voice stealing, repeated note-on/off and editor close/reopen.
 - [ ] Verify no allocation, lock or file access in the audio callback.
