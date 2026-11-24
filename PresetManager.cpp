@@ -280,11 +280,23 @@ namespace cray
 
         const auto targetDir = extractSamplesDir.getChildFile(
             juce::File::createLegalFileName(packFile.getFileNameWithoutExtension()));
-        targetDir.createDirectory();
+
+        // Re-importing the same pack must not reuse stale files from an earlier extraction.
+        if (targetDir.exists() && !targetDir.deleteRecursively())
+        {
+            res.statusMessage = "Could not clear the previous extraction folder.";
+            return res;
+        }
+        if (!targetDir.createDirectory())
+        {
+            res.statusMessage = "Could not create the pack extraction folder.";
+            return res;
+        }
 
         const auto uncompressResult = zip.uncompressTo(targetDir, true);
         if (uncompressResult.failed())
         {
+            targetDir.deleteRecursively();
             res.statusMessage = "Failed extracting pack: " + uncompressResult.getErrorMessage();
             return res;
         }
@@ -292,6 +304,7 @@ namespace cray
         const auto presetFile = targetDir.getChildFile("preset" + juce::String(ProductInfo::kPresetExtension));
         if (!presetFile.existsAsFile())
         {
+            targetDir.deleteRecursively();
             res.statusMessage = "No preset manifest found inside pack.";
             return res;
         }
