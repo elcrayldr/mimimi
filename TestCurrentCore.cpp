@@ -187,6 +187,13 @@ namespace
                 zone.rootNote = root;
                 zone.layerIndex = 0;
                 instrument.zones.push_back(zone);
+                if (root == 48)
+                {
+                    // A second velocity split at the same root must share the key range.
+                    zone.lowVelocity = 64;
+                    zone.highVelocity = 127;
+                    instrument.zones.push_back(zone);
+                }
             }
 
             cray::InstrumentBuilder::autoMapZonesByRootNote(instrument, 0);
@@ -194,10 +201,12 @@ namespace
             expectEquals(instrument.zones[0].highKey, 42);
             expectEquals(instrument.zones[1].lowKey, 43);
             expectEquals(instrument.zones[1].highKey, 54);
-            expectEquals(instrument.zones[2].lowKey, 55);
-            expectEquals(instrument.zones[2].highKey, 66);
-            expectEquals(instrument.zones[3].lowKey, 67);
-            expectEquals(instrument.zones[3].highKey, 127);
+            expectEquals(instrument.zones[2].lowKey, 43);
+            expectEquals(instrument.zones[2].highKey, 54);
+            expectEquals(instrument.zones[3].lowKey, 55);
+            expectEquals(instrument.zones[3].highKey, 66);
+            expectEquals(instrument.zones[4].lowKey, 67);
+            expectEquals(instrument.zones[4].highKey, 127);
         }
 
         void testSampleVoicePlaybackAndPinning()
