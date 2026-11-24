@@ -17,7 +17,7 @@ namespace cray
             "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
         };
         const int clamped = std::clamp(midiNote, 0, 127);
-        const int octave  = (clamped / 12) - 1;
+        const int octave  = clamped / 12; // FL Studio convention: MIDI 60 is C5.
         return juce::String(kNames[static_cast<size_t>(clamped % 12)]) + juce::String(octave);
     }
 
@@ -83,7 +83,7 @@ namespace cray
                 continue;
 
             const int octave = neg ? -octaveDigit : octaveDigit;
-            const int midi   = (octave + 1) * 12 + semiBase + accidental;
+            const int midi   = octave * 12 + semiBase + accidental; // Parse filenames using FL Studio octave labels.
             if (midi >= 0 && midi <= 127)
                 return midi;
         }
