@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "Urban Kit Init",
+  "author": "CRAY LDR",
+  "category": "Drums & Percussion",
+  "bank": "Factory",
+  "tags": "drums percussion kit init trap urban",
+  "isFactory": true,
+  "description": "Initialised drum layer slot — load your own samples via the Instrument Builder. Each MIDI zone (C1–B2) is mapped to an independent sample layer ready for assignment.",
+  "apvtsXml": "<CRAY_LDR_PARAMETERS><PARAM id=\"osc1_enabled\" value=\"0\"/><PARAM id=\"osc1_level\" value=\"0.0\"/><PARAM id=\"osc2_enabled\" value=\"0\"/><PARAM id=\"osc2_level\" value=\"0.0\"/><PARAM id=\"osc3_enabled\" value=\"0\"/><PARAM id=\"osc3_level\" value=\"0.0\"/><PARAM id=\"osc4_enabled\" value=\"0\"/><PARAM id=\"osc4_level\" value=\"0.0\"/><PARAM id=\"amp_attack\" value=\"0.001\"/><PARAM id=\"amp_decay\" value=\"0.3\"/><PARAM id=\"amp_sustain\" value=\"0.0\"/><PARAM id=\"amp_release\" value=\"0.05\"/><PARAM id=\"filter_type\" value=\"0\"/><PARAM id=\"filter_cutoff\" value=\"18000.0\"/><PARAM id=\"filter_resonance\" value=\"0.0\"/><PARAM id=\"filter_env_amount\" value=\"0.0\"/><PARAM id=\"master_volume\" value=\"0.88\"/><PARAM id=\"voice_mode\" value=\"0\"/><PARAM id=\"polyphony\" value=\"32\"/><PARAM id=\"glide_time\" value=\"0.0\"/><PARAM id=\"pitch_bend_range\" value=\"0\"/><PARAM id=\"reverb_enabled\" value=\"1\"/><PARAM id=\"reverb_room_size\" value=\"0.2\"/><PARAM id=\"reverb_wet\" value=\"0.08\"/><PARAM id=\"reverb_dry\" value=\"1.0\"/><PARAM id=\"chorus_enabled\" value=\"0\"/><PARAM id=\"delay_enabled\" value=\"0\"/><PARAM id=\"eq_enabled\" value=\"0\"/><PARAM id=\"sat_enabled\" value=\"0\"/><PARAM id=\"sample_engine_active\" value=\"1\"/></CRAY_LDR_PARAMETERS>",
+  "instrument": null
+}

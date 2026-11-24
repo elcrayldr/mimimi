@@ -1,0 +1,11 @@
+build/
+out/
+.vs/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+_deps/
+CMakeCache.txt
+CMakeFiles/
+*.zip

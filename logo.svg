@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CRAY LDR URBAN INSTRUMENTS - Brand Logo SVG
+  Obsidian + Gold palette.  Used by juce_add_binary_data.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  <!-- Background (transparent) -->
+  <!-- Main wordmark: CRAY LDR -->
+  <text
+    x="12" y="52"
+    font-family="'Arial Black', 'Impact', sans-serif"
+    font-size="44"
+    font-weight="900"
+    letter-spacing="4"
+    fill="#C9A84C">CRAY LDR</text>
+  <!-- Sub-label -->
+  <text
+    x="14" y="70"
+    font-family="'Arial', sans-serif"
+    font-size="11"
+    letter-spacing="6"
+    fill="#8A8A8A">URBAN INSTRUMENTS</text>
+  <!-- Accent line under wordmark -->
+  <line x1="12" y1="57" x2="308" y2="57" stroke="#C9A84C" stroke-width="1.5" opacity="0.4"/>
+</svg>
