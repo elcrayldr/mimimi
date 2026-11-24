@@ -251,7 +251,7 @@ namespace cray
             }
 
             const auto entryBytes = static_cast<juce::int64>(entry->uncompressedSize);
-            if (entryBytes < 0 || entryBytes > kMaxPackEntryBytes
+            if (entryBytes > kMaxPackEntryBytes
                 || totalUncompressedBytes > kMaxPackTotalBytes - entryBytes)
             {
                 res.statusMessage = "Pack exceeds the allowed uncompressed size.";
