@@ -216,6 +216,23 @@ namespace cray
         return ok;
     }
 
+    void CrayLdrAudioProcessor::applyImportedPack(const PresetLoadResult& result)
+    {
+        if (!result.success)
+        {
+            statusBanner_ = result.statusMessage;
+            notifyStateChanged();
+            return;
+        }
+
+        currentPresetMeta_ = result.metadata;
+        activeInstrument_ = result.instrument;
+        sampleEditorModel_.setSelectedZoneIndex(0);
+        rebuildAndPublishInstrument();
+        statusBanner_ = result.statusMessage;
+        notifyStateChanged();
+    }
+
     void CrayLdrAudioProcessor::relinkMissingSamplesFromFolder(const juce::File& folder)
     {
         const int relinked = PresetManager::relinkMissingSamples(activeInstrument_, folder);
