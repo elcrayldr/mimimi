@@ -68,6 +68,7 @@ namespace cray
         void rebuildAndPublishInstrument();
         void resetToInitPatch();
         bool saveCurrentPresetToUserLibrary(const juce::String& name, SoundCategory category, const juce::String& tags);
+        void applyImportedPack(const PresetLoadResult& result);
         void relinkMissingSamplesFromFolder(const juce::File& folder);
         void pushUiMidiNote(int midiNote, float velocity01, bool isNoteOn) noexcept;
 
