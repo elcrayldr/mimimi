@@ -33,7 +33,7 @@ namespace cray
         void prepare(double sampleRate, int samplesPerBlock);
         void reset();
 
-        /** Publish a new compiled sample instrument from message/worker thread (lock-free). */
+        /** Publish a new compiled sample instrument from a non-audio thread. */
         void setSampleInstrument(std::shared_ptr<const CompiledSampleInstrument> newInstrument);
 
         /** Reap retired sample instruments whose audioRefCount has reached 0 (call from message thread timer). */
@@ -42,7 +42,7 @@ namespace cray
         /** Push a note event from GUI virtual keyboard or Sample Editor audition button. */
         void pushUiMidiEvent(int midiNote, float velocity01, bool isNoteOn) noexcept;
 
-        /** Process a full audio+MIDI block (real-time safe: zero locks, zero heap allocations). */
+        /** Process a full audio+MIDI block; audio-path real-time behavior must be stress-tested. */
         void processBlock(juce::AudioBuffer<float>& buffer,
                           juce::MidiBuffer& midiMessages,
                           const juce::AudioProcessorValueTreeState& apvts,
