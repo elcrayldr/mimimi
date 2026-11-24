@@ -2,7 +2,7 @@ name: CRAY LDR Urban Instruments - Windows Build
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'fix/**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -60,6 +60,8 @@ jobs:
           Write-Host "Verified $($presets.Count) factory presets in the VST3 bundle."
           python scripts/validate_factory_presets.py "$presetDir"
           if ($LASTEXITCODE -ne 0) { throw "Factory preset manifest validation failed." }
+          python scripts/validate_vst3_bundle.py "$($plugin.FullName)"
+          if ($LASTEXITCODE -ne 0) { throw "VST3 bundle architecture validation failed." }
           "VST3_PATH=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Upload VST3
