@@ -61,7 +61,14 @@ namespace cray
             }
         }
 
-        std::unique_ptr<juce::AudioFormatReader> reader(formatManager_.createReaderFor(file));
+        std::unique_ptr<juce::AudioFormatReader> reader;
+        {
+            // JUCE AudioFormatManager is mutable when formats are registered. Protect
+            // reader creation against concurrent registerFormat() calls, then decode
+            // outside the lock so large files never hold the cache/format mutex.
+            std::lock_guard<std::mutex> lock(mutex_);
+            reader.reset(formatManager_.createReaderFor(file));
+        }
         if (reader == nullptr)
         {
             result.errorMessage = "Unsupported or corrupted audio file: " + file.getFileName();
