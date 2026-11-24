@@ -424,7 +424,7 @@ namespace cray
                                   + modOffsets[static_cast<size_t>(ModDest::Pan)], -1.0f, 1.0f);
         float globalPanL = 1.0f, globalPanR = 1.0f;
         DspMath::equalPowerPan(globalPan, globalPanL, globalPanR);
-        outLeft = sumL * globalPanL * globalAmpEnv;
-        outRight = sumR * globalPanR * globalAmpEnv;
+        outLeft = sumL * globalPanL * 1.4142f * globalAmpEnv;
+        outRight = sumR * globalPanR * 1.4142f * globalAmpEnv;
     }
 }
