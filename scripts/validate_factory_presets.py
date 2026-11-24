@@ -37,6 +37,11 @@ for path in files:
         params = [node.attrib.get("id", "") for node in root.iter("PARAM")]
         if not params:
             raise ValueError("no APVTS PARAM nodes")
+        instrument = data.get("instrument")
+        if instrument is not None and not isinstance(instrument, dict):
+            raise ValueError("instrument must be an object or null")
+        if isinstance(instrument, dict) and not isinstance(instrument.get("zones", []), list):
+            raise ValueError("instrument zones must be an array")
         unknown = sorted(set(params) - valid_ids)
         if unknown:
             raise ValueError(f"unknown APVTS parameter IDs: {', '.join(unknown)}")
