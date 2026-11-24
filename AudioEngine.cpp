@@ -222,6 +222,12 @@ namespace cray
 
         ModOffsets globalModOffsets{};
         modMatrix_.evaluate(globalCtx, globalModOffsets);
+
+        // LFO rate destinations are applied at block rate to avoid coefficient
+        // churn inside the sample loop while keeping modulation responsive.
+        lfos_[0].setRateModulation(globalModOffsets[static_cast<size_t>(ModDest::Lfo1Rate)]);
+        lfos_[1].setRateModulation(globalModOffsets[static_cast<size_t>(ModDest::Lfo2Rate)]);
+
         effectsChain_.updateFromParameters(apvts, hostBpm, globalModOffsets);
 
         float* left  = buffer.getWritePointer(0);
