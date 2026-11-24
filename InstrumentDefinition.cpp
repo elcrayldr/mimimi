@@ -1,6 +1,7 @@
 #include "Library/InstrumentDefinition.h"
 #include "DSP/Utilities/DspMath.h"
 #include <algorithm>
+#include <cmath>
 
 namespace cray
 {
@@ -38,7 +39,10 @@ namespace cray
         for (const auto& lc : layers)
         {
             compiled->layerEnabled.push_back(lc.enabled);
-            compiled->layerGain.push_back(lc.gain);
+            const float safeLayerGain = std::isfinite(lc.gain)
+                ? DspMath::clamp(lc.gain, 0.0f, 1.5f)
+                : 1.0f;
+            compiled->layerGain.push_back(safeLayerGain);
         }
 
         for (const auto& spec : zones)
@@ -74,8 +78,10 @@ namespace cray
             cz.highKey         = std::clamp(std::max(spec.lowKey, spec.highKey), 0, 127);
             cz.lowVelocity     = std::clamp(spec.lowVelocity, 1, 127);
             cz.highVelocity    = std::clamp(std::max(spec.lowVelocity, spec.highVelocity), 1, 127);
-            cz.pitchSemitones  = spec.pitchSemitones;
-            cz.fineTuneCents   = spec.fineTuneCents;
+            cz.pitchSemitones  = std::clamp(spec.pitchSemitones, -48, 48);
+            cz.fineTuneCents   = std::isfinite(spec.fineTuneCents)
+                ? DspMath::clamp(spec.fineTuneCents, -100.0f, 100.0f)
+                : 0.0f;
             cz.reverse         = spec.reverse;
 
             cz.startSample     = std::clamp(spec.startSample, 0, totalFrames - 2);
@@ -86,23 +92,33 @@ namespace cray
             cz.loopStartSample = std::clamp(spec.loopStartSample, cz.startSample, cz.endSample - 2);
             const int rawLoopE = (spec.loopEndSample > 0) ? spec.loopEndSample : cz.endSample;
             cz.loopEndSample   = std::clamp(rawLoopE, cz.loopStartSample + 2, cz.endSample);
-            cz.loopCrossfade   = std::max(0, spec.loopCrossfade);
+            cz.loopCrossfade   = std::clamp(spec.loopCrossfade, 0, totalFrames / 2);
 
-            cz.fadeInSamples   = std::max(0, spec.fadeInSamples);
-            cz.fadeOutSamples  = std::max(0, spec.fadeOutSamples);
+            cz.fadeInSamples   = std::clamp(spec.fadeInSamples, 0, totalFrames);
+            cz.fadeOutSamples  = std::clamp(spec.fadeOutSamples, 0, totalFrames);
 
-            cz.gainLinear      = DspMath::dbToGain(spec.gainDb + spec.normalizeGainDb);
-            cz.pan             = DspMath::clamp(spec.pan, -1.0f, 1.0f);
+            const float totalGainDb = (std::isfinite(spec.gainDb) ? spec.gainDb : 0.0f)
+                                    + (std::isfinite(spec.normalizeGainDb) ? spec.normalizeGainDb : 0.0f);
+            cz.gainLinear      = DspMath::dbToGain(DspMath::clamp(totalGainDb, -96.0f, 24.0f));
+            cz.pan             = std::isfinite(spec.pan)
+                ? DspMath::clamp(spec.pan, -1.0f, 1.0f)
+                : 0.0f;
 
-            cz.attackSec       = spec.attackSec;
-            cz.decaySec        = spec.decaySec;
-            cz.sustainLevel    = spec.sustainLevel;
-            cz.releaseSec      = spec.releaseSec;
+            cz.attackSec       = std::isfinite(spec.attackSec)
+                ? DspMath::clamp(spec.attackSec, 0.0005f, 8.0f) : 0.005f;
+            cz.decaySec        = std::isfinite(spec.decaySec)
+                ? DspMath::clamp(spec.decaySec, 0.001f, 10.0f) : 0.25f;
+            cz.sustainLevel    = std::isfinite(spec.sustainLevel)
+                ? DspMath::clamp(spec.sustainLevel, 0.0f, 1.0f) : 1.0f;
+            cz.releaseSec      = std::isfinite(spec.releaseSec)
+                ? DspMath::clamp(spec.releaseSec, 0.001f, 12.0f) : 0.20f;
 
             cz.filterEnabled   = spec.filterEnabled;
             cz.filterType      = spec.filterType;
-            cz.filterCutoffHz  = spec.filterCutoffHz;
-            cz.filterResonance = spec.filterResonance;
+            cz.filterCutoffHz  = std::isfinite(spec.filterCutoffHz)
+                ? DspMath::clamp(spec.filterCutoffHz, 20.0f, 20000.0f) : 18000.0f;
+            cz.filterResonance = std::isfinite(spec.filterResonance)
+                ? DspMath::clamp(spec.filterResonance, 0.0f, 0.96f) : 0.1f;
 
             compiled->zones.push_back(std::move(cz));
         }
