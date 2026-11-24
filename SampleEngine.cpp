@@ -326,14 +326,13 @@ namespace cray
             }
 
             float panL = 1.0f, panR = 1.0f;
-            const float combinedPan = DspMath::clamp(z.pan + globalParams.pan + modOffsets[static_cast<size_t>(ModDest::Pan)], -1.0f, 1.0f);
+            const float combinedPan = DspMath::clamp(z.pan, -1.0f, 1.0f);
             DspMath::equalPowerPan(combinedPan, panL, panR);
 
             const float totalGain = z.gainLinear
                                   * layerGains_[idx]
                                   * globalParams.gainLinear
                                   * envVal
-                                  * globalAmpEnv
                                   * velGain
                                   * fadeGain
                                   * DspMath::clamp(1.0f + modOffsets[static_cast<size_t>(ModDest::AmpLevel)]
