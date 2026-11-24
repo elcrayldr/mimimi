@@ -173,28 +173,39 @@ target_compile_definitions(CrayLdrUrbanInstruments PUBLIC
   JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:CrayLdrUrbanInstruments,JUCE_PRODUCT_NAME>"
   JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:CrayLdrUrbanInstruments,JUCE_VERSION>")
 
-# Package optional structured resources plus the current root-level factory presets.
-foreach(resource_dir FactoryPresets FactorySamples)
-  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/${resource_dir}")
-    add_custom_command(TARGET CrayLdrUrbanInstruments POST_BUILD
-      COMMAND "${CMAKE_COMMAND}" -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/Resources/${resource_dir}"
-        "$<TARGET_FILE_DIR:CrayLdrUrbanInstruments>/Resources/${resource_dir}"
-      VERBATIM)
+# Package resources next to the actual plugin module, not the shared-code target.
+# A VST3 module lives in Contents/x86_64-win, while its resources belong in Contents/Resources.
+function(cray_copy_factory_resources target resource_destination)
+  if(TARGET ${target})
+    foreach(resource_dir FactoryPresets FactorySamples)
+      if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/${resource_dir}")
+        add_custom_command(TARGET ${target} POST_BUILD
+          COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/Resources/${resource_dir}"
+            "${resource_destination}/${resource_dir}"
+          VERBATIM)
+      endif()
+    endforeach()
+
+    if(CRAY_ROOT_FACTORY_PRESETS)
+      add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+          "${resource_destination}/FactoryPresets"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+          ${CRAY_ROOT_FACTORY_PRESETS}
+          "${resource_destination}/FactoryPresets"
+        VERBATIM)
+    endif()
   endif()
-endforeach()
+endfunction()
 
 file(GLOB CRAY_ROOT_FACTORY_PRESETS CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/*.craypreset")
-if(CRAY_ROOT_FACTORY_PRESETS)
-  add_custom_command(TARGET CrayLdrUrbanInstruments POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E make_directory
-      "$<TARGET_FILE_DIR:CrayLdrUrbanInstruments>/Resources/FactoryPresets"
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-      ${CRAY_ROOT_FACTORY_PRESETS}
-      "$<TARGET_FILE_DIR:CrayLdrUrbanInstruments>/Resources/FactoryPresets"
-    VERBATIM)
-endif()
+
+cray_copy_factory_resources(CrayLdrUrbanInstruments_VST3
+  "$<TARGET_FILE_DIR:CrayLdrUrbanInstruments_VST3>/../Resources")
+cray_copy_factory_resources(CrayLdrUrbanInstruments_Standalone
+  "$<TARGET_FILE_DIR:CrayLdrUrbanInstruments_Standalone>/Resources")
 
 if(CRAY_BUILD_TESTS)
   set(CRAY_TEST_SOURCES
