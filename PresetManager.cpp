@@ -101,13 +101,19 @@ namespace cray
         }
 
         InstrumentDefinition candidateInstrument;
-        if (root->hasProperty("instrument")
-            && !InstrumentDefinition::fromJson(root->getProperty("instrument"),
-                                               candidateInstrument,
-                                               file.getParentDirectory()))
+        // A null instrument is a valid synth-only preset. Factory synth patches use
+        // this representation; only non-null values must decode as an instrument.
+        if (root->hasProperty("instrument"))
         {
-            res.statusMessage = "Preset contains an invalid instrument definition: " + file.getFileName();
-            return res;
+            const auto instrumentValue = root->getProperty("instrument");
+            if (!instrumentValue.isVoid()
+                && !InstrumentDefinition::fromJson(instrumentValue,
+                                                   candidateInstrument,
+                                                   file.getParentDirectory()))
+            {
+                res.statusMessage = "Preset contains an invalid instrument definition: " + file.getFileName();
+                return res;
+            }
         }
 
         res.metadata.name      = root->getProperty("name").toString();
