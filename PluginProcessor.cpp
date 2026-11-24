@@ -216,6 +216,12 @@ namespace cray
         return ok;
     }
 
+    void CrayLdrAudioProcessor::reportStatus(const juce::String& message)
+    {
+        statusBanner_ = message;
+        notifyStateChanged();
+    }
+
     void CrayLdrAudioProcessor::applyImportedPack(const PresetLoadResult& result)
     {
         if (!result.success)
