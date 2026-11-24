@@ -47,6 +47,12 @@ jobs:
         run: |
           $plugin = Get-ChildItem -Path build -Recurse -Directory -Filter "*.vst3" | Select-Object -First 1
           if ($null -eq $plugin) { throw "VST3 artifact was not produced." }
+          $presetDir = Join-Path $plugin.FullName "Contents\Resources\FactoryPresets"
+          $presets = @(Get-ChildItem -Path $presetDir -File -Filter "*.craypreset" -ErrorAction SilentlyContinue)
+          if ($presets.Count -lt 8) {
+            throw "Expected at least 8 factory presets in $presetDir, found $($presets.Count)."
+          }
+          Write-Host "Verified $($presets.Count) factory presets in the VST3 bundle."
           "VST3_PATH=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Upload VST3
