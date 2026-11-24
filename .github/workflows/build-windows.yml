@@ -7,6 +7,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Keep only the newest build for each branch / pull-request ref.
+concurrency:
+  group: cray-ldr-windows-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   JUCE_VERSION: "8.0.6"
   CMAKE_BUILD_TYPE: Release
