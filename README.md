@@ -1,218 +1,94 @@
 # CRAY LDR URBAN INSTRUMENTS
 
-> **Professional hybrid synthesizer + sampler VST3 plugin for Windows x64**  
-> Built with JUCE 8.0.6 · C++17 · CMake · Visual Studio 2022
+**Windows x64 VST3 instrument — development build 1.0.2**
 
----
+CRAY LDR URBAN INSTRUMENTS is a JUCE-based hybrid synthesizer and sample instrument. This repository contains the C++ source, CMake project, Windows CI workflow and eight factory synth presets.
 
-## Overview
+> **Release status:** development / pre-release. A successful CI build confirms that the Windows VST3 target compiles and packages. It does not establish DAW compatibility, real-time safety under stress, complete feature coverage or commercial-release readiness. FL Studio and Cubase have not been validated as part of this repository's automated workflow.
 
-CRAY LDR URBAN INSTRUMENTS is a commercial-quality virtual instrument that combines:
+## Current implementation
 
-- **Four-oscillator synthesizer** with PolyBLEP anti-aliasing, unison, and a full modulation matrix
-- **Multisample engine** supporting WAV, AIFF, and FLAC with up to 4 layers per zone
-- **Sample Editor** — non-destructive waveform editing with live preview
-- **Instrument Builder** — build multi-sampled instruments from your own audio files
-- **Effects rack** — EQ, Saturation/Distortion, Chorus, Delay, and Reverb with real DSP
-- **Factory Library** — 8 categories, 8 factory presets included
-- **User Library** — importable, searchable, organized by folder and favorites
-- **Preset Manager** — `.craypreset` and portable `.craypack` formats
+- Four-oscillator synth architecture with PolyBLEP oscillators and unison.
+- Polyphonic voice manager with mono/legato modes, sustain, pitch bend and modulation inputs.
+- Dual LFOs and an eight-slot modulation matrix.
+- Sample zones with key/velocity ranges, layers, pitch, reverse, loop, fades, envelopes and per-zone filtering.
+- WAV, AIFF and FLAC sample decoding.
+- Non-destructive sample editor model and instrument builder with filename-based MIDI root-note detection and key-range mapping.
+- EQ, saturation/distortion, chorus, delay and algorithmic reverb DSP modules.
+- JSON preset/instrument serialization and portable-pack import/export code.
+- Custom JUCE interface with Main, Edit, Sample Editor, Instrument Builder and Effects views.
 
-Runs in **FL Studio 26**, **Cubase 13**, and any VST3-compatible DAW.
+The eight checked-in `.craypreset` files are synth patches. They do **not** constitute a factory multisample/sample library.
 
----
+## Build requirements
 
-## System Requirements
+- Windows 10/11 x64
+- Visual Studio 2022 with Desktop development with C++
+- CMake 3.22+
+- JUCE 8.0.6 (downloaded by FetchContent, or supplied with `JUCE_DIR`)
 
-| Component | Minimum |
-|-----------|---------|
-| OS | Windows 10 (64-bit) or Windows 11 |
-| CPU | Intel/AMD x64, 4+ cores recommended |
-| RAM | 4 GB (8 GB recommended) |
-| DAW | Any VST3-compatible host (FL Studio 26, Cubase 13 tested) |
+## Build (Windows)
 
-### Build Requirements
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+  -DCRAY_BUILD_TESTS=OFF -DCRAY_BUILD_STANDALONE=ON
 
-| Tool | Version |
-|------|---------|
-| Visual Studio | 2022 (Community or Professional) — with **Desktop development with C++** workload |
-| CMake | 3.22 or newer |
-| JUCE | 8.0.6 (fetched automatically via CMake FetchContent) |
-| Git | Any recent version |
-
----
-
-## Quick Build (Windows)
-
-### 1. Clone the repository
-
-```bat
-git clone https://github.com/crayldr/urban-instruments.git
-cd urban-instruments
-```
-
-### 2. Configure
-
-```bat
-cmake -B build -G "Visual Studio 17 2022" -A x64 ^
-      -DCMAKE_BUILD_TYPE=Release ^
-      -DCRAY_BUILD_TESTS=ON ^
-      -DCRAY_BUILD_STANDALONE=ON
-```
-
-> **Local JUCE checkout (faster):** If you already have JUCE 8.0.6 on disk, skip the FetchContent download:
-> ```bat
-> cmake -B build -G "Visual Studio 17 2022" -A x64 ^
->       -DJUCE_DIR="C:\path\to\JUCE" ^
->       -DCMAKE_BUILD_TYPE=Release
-> ```
-
-### 3. Build
-
-```bat
 cmake --build build --config Release --parallel
 ```
 
-### 4. Run unit tests
+To use a local JUCE checkout:
 
-```bat
-cd build
-ctest -C Release --output-on-failure
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+  -DJUCE_DIR="C:/SDK/JUCE" -DCRAY_BUILD_TESTS=OFF
 ```
 
-### 5. Find the built VST3
+The automated Windows workflow currently builds the VST3 and Standalone targets with the legacy unit-test target disabled. The test sources still require porting and must not be considered passing.
+
+## VST3 bundle
+
+The expected output is:
 
 ```
-build\CrayLdrUrbanInstruments_artefacts\Release\VST3\
-  CRAY LDR URBAN INSTRUMENTS.vst3\
+CRAY LDR URBAN INSTRUMENTS.vst3/
+  Contents/
+    x86_64-win/
+      CRAY LDR URBAN INSTRUMENTS.vst3
+    Resources/
+      FactoryPresets/
+        *.craypreset
 ```
 
----
-
-## Installation in Your DAW
-
-### Manual install
-
-1. Copy `CRAY LDR URBAN INSTRUMENTS.vst3` to:
-   ```
-   C:\Program Files\Common Files\VST3\
-   ```
-2. Copy the `Resources\` folder next to the `.vst3`, or use the automatic post-build copy (the CMake target stages them in the same output directory).
-3. Re-scan plugins in your DAW.
-
-### FL Studio 26
-
-- Go to **Options → Manage Plugins → Find more plugins**
-- Add `C:\Program Files\Common Files\VST3\` if not already listed
-- Scan and verify CRAY LDR URBAN INSTRUMENTS appears in the browser
-
-### Cubase 13
-
-- **Studio → VST Plug-in Manager → Update**
-
----
-
-## Factory Library Setup
-
-After build, copy the contents of `Resources\` next to your VST3:
+Install the complete `.vst3` bundle into:
 
 ```
-C:\Program Files\Common Files\VST3\
-  CRAY LDR URBAN INSTRUMENTS.vst3\
-  Resources\
-    FactoryPresets\
-      Plucks & Bells\
-      Basses & 808\
-      Keys & Pianos\
-      ...
-    FactorySamples\
-    Graphics\
+C:\\Program Files\\Common Files\\VST3\\
 ```
 
-The plugin reads factory presets from this `Resources\` directory at startup. The user library defaults to `%USERPROFILE%\Documents\CRAY LDR\User Library\` and can be changed inside the plugin via **Library → Change User Library Location**.
+Then rescan plugins in the host. The CI workflow checks the bundle, validates the factory preset JSON/APVTS XML and uploads the VST3 artifact. It does not launch a DAW.
 
----
+## Preset and instrument formats
 
-## Project Structure
+- `.craypreset`: preset metadata, APVTS XML and instrument definition.
+- `.crayinst`: instrument metadata, layers and sample zones.
+- `.craypack`: portable ZIP package containing a preset/instrument and copied samples.
 
-```
-CrayLdrUrbanInstruments/
-├── CMakeLists.txt           # Build system (JUCE 8.0.6, VST3, tests)
-├── CMakePresets.json        # VS2022 x64 presets
-├── README.md                # This file
-├── docs/
-│   └── ARCHITECTURE.md      # Module diagram, RT-safety guarantees, file formats
-├── Source/
-│   ├── Common/              # ProductInfo, Categories, ParameterIDs, LockFreeQueue
-│   ├── DSP/
-│   │   ├── Oscillators/     # PolyBlepOscillator, UnisonOscillatorBank
-│   │   ├── Envelopes/       # AhdsrEnvelope
-│   │   ├── Filters/         # ZdfSvfFilter (TPT / Zero-Delay Feedback)
-│   │   ├── Modulation/      # LfoEngine, ModMatrix
-│   │   ├── Effects/         # ParametricEq, SaturationDistortion, StereoChorus,
-│   │   │                    #   StereoDelay, AlgorithmicReverb, EffectsChain
-│   │   └── Utilities/       # DspMath, ParameterSmoother, DcBlocker
-│   ├── Engine/
-│   │   ├── SampleData       # SampleBuffer (RT-safe ref-counted)
-│   │   ├── SynthEngine      # SynthVoice (4 osc + dual ADSR + filter)
-│   │   ├── SampleEngine     # SampleVoice (multi-zone, cubic Hermite resampling)
-│   │   ├── VoiceManager     # Poly/Mono/Legato, voice stealing, sustain pedal
-│   │   └── AudioEngine      # Top-level RT engine: LFO, ModMatrix, Effects, MIDI
-│   ├── Library/
-│   │   ├── SampleDecoder    # WAV/AIFF/FLAC decoder with weak cache
-│   │   ├── LibraryManager   # Factory + User library with JSON index
-│   │   ├── LibraryItem      # LibraryItem, LibraryQuery structs
-│   │   ├── InstrumentDefinition # Zone spec → CompiledSampleInstrument + JSON
-│   │   ├── SampleEditorModel # Non-destructive editor model
-│   │   ├── InstrumentBuilder # Note-name parser, automap, buildInstrument()
-│   │   └── PresetManager    # .craypreset/.craypack save/load/export/import
-│   ├── Plugin/
-│   │   ├── PluginProcessor  # AudioProcessor: processBlock, state, APVTS
-│   │   └── PluginEditor     # AudioProcessorEditor: 5 views, 30Hz timer
-│   └── UI/
-│       ├── Theme/           # ColorPalette, CrayLookAndFeel (custom JUCE L&F)
-│       ├── Components/      # RotaryKnob, LevelMeter, EnvelopeDisplay,
-│       │                    #   WaveformView, KeyZoneMapView, VirtualKeyboardBar,
-│       │                    #   HeaderBar, BrowserSidebar
-│       └── Views/           # MainView, EditView, SampleEditorView,
-│                            #   InstrumentBuilderView, EffectsView
-├── Resources/
-│   ├── Graphics/            # logo.svg, icon.svg (embedded via juce_add_binary_data)
-│   ├── FactoryPresets/      # 8 categories × factory presets (.craypreset)
-│   └── FactorySamples/      # Factory sample audio (WAV/FLAC)
-├── Tests/                   # JUCE unit tests (7 files)
-├── scripts/
-│   └── package_release.ps1  # PowerShell: build + package ZIP
-└── .github/
-    └── workflows/
-        └── build.yml        # GitHub Actions CI: build, test, upload artifact
-```
+Sample paths can be relative to the preset/instrument directory or absolute. Moving a project without its referenced samples can produce missing-sample warnings; use portable packs or relink samples after moving content.
 
----
+## Known release blockers
 
-## File Formats
+1. Port and enable the unit-test suite; add tests for malformed presets, state restore, sample-zone mapping, resampling, loops and voice lifecycle.
+2. Audit the sample-instrument ownership/hazard-pointer protocol with stress tests and sanitizers where available.
+3. Verify that the audio callback performs no heap allocations, locks or file I/O under realistic host block sizes and automation.
+4. Validate every UI control against the DSP parameter it is meant to control; remove or implement any decorative/nonfunctional controls.
+5. Build and audition a genuine factory multisample library. The current eight presets are synth-only.
+6. Test VST3 scanning, opening, MIDI, automation, preset changes, project save/reopen, sample relinking, CPU use and shutdown in FL Studio and Cubase.
+7. Complete installer/package, user documentation, licensing review and release signing.
 
-| Extension | Description |
-|-----------|-------------|
-| `.craypreset` | JSON preset: metadata + APVTS XML + optional instrument definition |
-| `.crayinst` | JSON instrument definition: zones, layers, file paths |
-| `.craypack` | ZIP archive: preset + referenced sample files (portable exchange) |
+## Project layout
 
----
-
-## Development Notes
-
-- **Audio thread safety:** No heap allocations, no mutex locks, no disk I/O inside `processBlock`. All heavy work (sample loading, instrument compilation) occurs on the message thread and is published to the audio thread via `std::atomic<>` pointer swap.
-- **Voice stealing:** Quiet-first (finds the voice with the lowest amplitude envelope value) with fallback to oldest-voice for equal amplitudes.
-- **State versioning:** `getStateInformation` / `setStateInformation` wrap the APVTS XML in a JSON envelope with `"schemaVersion": 1`. Future schema migrations are handled by version inspection at load time.
-
----
+The current checkout stores implementation files at repository root. CMake explicitly lists sources and generates compatibility include paths for the original logical module names. See [ARCHITECTURE.md](ARCHITECTURE.md) for the current threading and DSP design notes.
 
 ## License
 
-CRAY LDR URBAN INSTRUMENTS source code is proprietary software.  
-© 2025 CRAY LDR. All rights reserved.
-
-Third-party components:
-- **JUCE** — licensed under the JUCE End User Licence Agreement (see [juce.com/juce/licensing](https://juce.com/juce/licensing/))
-- **Freeverb** — public domain algorithm (Jezar at Dreampoint)
+Project source and product assets are proprietary unless a file explicitly states otherwise. JUCE remains subject to its own licensing terms.
