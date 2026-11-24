@@ -107,7 +107,7 @@ namespace cray
 
     bool PresetManager::exportPortablePack(const juce::File& packFile,
                                            const PresetMetadata& meta,
-                                           const juce::AudioProcessorValueTreeState& apvts,
+                                           juce::AudioProcessorValueTreeState& apvts,
                                            const InstrumentDefinition& instrument)
     {
         const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
