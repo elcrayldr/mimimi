@@ -74,8 +74,16 @@ namespace cray
             return result;
         }
 
-        // Guard against absurdly huge files > ~150M frames (~25 min @ 96k)
-        const int numSamples  = static_cast<int>(std::min<juce::int64>(reader->lengthInSamples, 150000000LL));
+        // Bound decoded RAM to approximately 256 MiB for stereo float audio.
+        // Reject oversized files instead of silently truncating the source.
+        constexpr juce::int64 kMaxDecodedFrames = 32'000'000LL;
+        if (reader->lengthInSamples > kMaxDecodedFrames)
+        {
+            result.errorMessage = "Sample exceeds the 256 MiB decoded-audio limit: " + file.getFileName();
+            return result;
+        }
+
+        const int numSamples  = static_cast<int>(reader->lengthInSamples);
         const int numChannels = static_cast<int>(std::min<unsigned int>(reader->numChannels, 2u));
 
         auto buf = std::make_shared<SampleBuffer>();
