@@ -45,13 +45,13 @@ namespace cray
         synthParams_ = synth;
         sampleParams_ = sample;
 
+        // Configure every slot, including idle sample voices, before a new note
+        // arrives in this block. Otherwise the first sample note would use stale
+        // envelope settings until the slot had already become active.
         for (auto& s : slots_)
         {
-            if (s.inUse)
-            {
-                s.synthVoice.updateEnvelopes(synthParams_);
-                s.sampleVoice.updateEnvelopes(sampleParams_);
-            }
+            s.synthVoice.updateEnvelopes(synthParams_);
+            s.sampleVoice.updateEnvelopes(sampleParams_);
         }
     }
 
