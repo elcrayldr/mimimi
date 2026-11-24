@@ -124,19 +124,18 @@ namespace cray
             if (!f.existsAsFile() || !decoder_.isSupportedAudioFile(f))
                 continue;
 
-            const auto dec = decoder_.loadSample(f);
-            if (!dec.success || dec.buffer == nullptr)
-                continue;
-
+            // Do not decode here: buildInstrument() compiles each sample once.
+            // The previous eager decode was discarded immediately because the decoder
+            // cache is weak, forcing a second full decode during instrument compilation.
             SampleZoneSpec spec;
             spec.zoneId         = juce::Uuid().toString();
             spec.sourceFilePath = f.getFullPathName();
             spec.displayName    = f.getFileNameWithoutExtension();
             spec.layerIndex     = std::max(0, targetLayer);
             spec.startSample    = 0;
-            spec.endSample      = std::max(1, dec.buffer->numSamples - 1);
+            spec.endSample      = 0; // 0 = full sample length at compile time
             spec.loopStartSample = 0;
-            spec.loopEndSample   = spec.endSample;
+            spec.loopEndSample   = 0; // 0 = compiled zone end
 
             if (autoDetectRootNotes)
             {
@@ -228,6 +227,10 @@ namespace cray
         if (res.compileReport.compiled == nullptr || res.compileReport.compiled->zones.empty())
         {
             res.statusMessage = "Build failed: no valid playable sample zones could be decoded.";
+            if (!res.compileReport.errors.isEmpty())
+                res.statusMessage += " " + res.compileReport.errors[0];
+            if (!res.compileReport.missingFiles.isEmpty())
+                res.statusMessage += " Missing: " + res.compileReport.missingFiles.joinIntoString(", ");
             return res;
         }
 
