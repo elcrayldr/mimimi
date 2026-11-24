@@ -47,11 +47,14 @@ namespace cray
 
     void AudioEngine::collectGarbage()
     {
+        const auto hazard = audioHazardPtr_.load(std::memory_order_seq_cst);
         retiredInstruments_.erase(
             std::remove_if(retiredInstruments_.begin(), retiredInstruments_.end(),
-                [](const std::shared_ptr<const CompiledSampleInstrument>& inst)
+                [hazard](const std::shared_ptr<const CompiledSampleInstrument>& inst)
                 {
-                    return inst == nullptr || inst->audioRefCount.load(std::memory_order_acquire) <= 0;
+                    return inst == nullptr
+                        || (inst.get() != hazard
+                            && inst->audioRefCount.load(std::memory_order_acquire) <= 0);
                 }),
             retiredInstruments_.end());
     }
@@ -161,7 +164,16 @@ namespace cray
         buffer.clear();
         syncParameters(apvts, hostBpm);
 
-        const CompiledSampleInstrument* sampleInst = activeInstrumentPtr_.load(std::memory_order_acquire);
+        // Acquire a hazard before dereferencing the published raw pointer. The message
+        // thread may retire snapshots concurrently; collectGarbage() must not free the
+        // selected snapshot until this block has either pinned it in a voice or finished.
+        const CompiledSampleInstrument* sampleInst = nullptr;
+        do
+        {
+            sampleInst = activeInstrumentPtr_.load(std::memory_order_seq_cst);
+            audioHazardPtr_.store(sampleInst, std::memory_order_seq_cst);
+        }
+        while (sampleInst != activeInstrumentPtr_.load(std::memory_order_seq_cst));
 
         // Drain UI Virtual Keyboard / Sample Audition queue at start of block
         AuditionEvent uiEv;
@@ -298,5 +310,8 @@ namespace cray
         telemetry.activeSynthVoices.store(voiceManager_.getActiveSynthVoices(), std::memory_order_relaxed);
         telemetry.activeSampleVoices.store(voiceManager_.getActiveSampleVoices(), std::memory_order_relaxed);
         telemetry.totalVoices.store(voiceManager_.getTotalActiveVoices(), std::memory_order_relaxed);
+
+        // All newly started SampleVoice instances have now taken their own reference.
+        audioHazardPtr_.store(nullptr, std::memory_order_seq_cst);
     }
 }
