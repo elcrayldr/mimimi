@@ -161,7 +161,9 @@ namespace cray
                     const auto name = alert->getTextEditorContents("name");
                     const auto cat  = static_cast<SoundCategory>(alert->getComboBoxComponent("category")->getSelectedId());
                     const auto tags = alert->getTextEditorContents("tags");
-                    processor_.saveCurrentPresetToUserLibrary(name, cat, tags);
+                    const bool saved = processor_.saveCurrentPresetToUserLibrary(name, cat, tags);
+                    if (!saved)
+                        processor_.reportStatus("Could not save preset. Check the User Library folder permissions.");
                 }
                 delete alert;
             }), false);
@@ -215,11 +217,14 @@ namespace cray
                 const auto target = fc.getResult();
                 if (target != juce::File())
                 {
-                    processor_.getPresetManager().exportPortablePack(
+                    const bool exported = processor_.getPresetManager().exportPortablePack(
                         target,
                         processor_.getCurrentPresetMetadata(),
                         processor_.getApvts(),
                         processor_.getActiveInstrument());
+                    processor_.reportStatus(exported
+                        ? ("Portable pack exported: " + target.getFileName())
+                        : "Portable pack export failed. Check that every sample file is available and writable.");
                 }
             });
     }
