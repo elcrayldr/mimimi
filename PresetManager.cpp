@@ -287,7 +287,7 @@ namespace cray
             res.statusMessage = "Could not clear the previous extraction folder.";
             return res;
         }
-        if (!targetDir.createDirectory())
+        if (targetDir.createDirectory().failed())
         {
             res.statusMessage = "Could not create the pack extraction folder.";
             return res;
