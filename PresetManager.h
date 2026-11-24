@@ -45,7 +45,7 @@ namespace cray
 
         bool exportPortablePack(const juce::File& packFile,
                                 const PresetMetadata& meta,
-                                const juce::AudioProcessorValueTreeState& apvts,
+                                juce::AudioProcessorValueTreeState& apvts,
                                 const InstrumentDefinition& instrument);
 
         PresetLoadResult importPortablePack(const juce::File& packFile,
