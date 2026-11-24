@@ -10,6 +10,17 @@ files = sorted(preset_dir.glob("*.craypreset"))
 if len(files) < 8:
     raise SystemExit(f"Expected at least 8 factory presets, found {len(files)}")
 
+# Build the valid APVTS parameter-ID set from the same declarations used by C++.
+header = (pathlib.Path(__file__).resolve().parent.parent / "ParameterIDs.h").read_text(encoding="utf-8")
+valid_ids = set(re.findall(r'inline constexpr const char\\*\\s+\\w+\\s*=\\s*"([^"]+)"', header))
+for match in re.finditer(
+    r'inline juce::String\\s+(\\w+)\\(int \\w+\\)\\s*\\{\\s*return "([^"]*)"\\s*\\+\\s*juce::String\\(\\w+\\s*\\+\\s*1\\)\\s*\\+\\s*"([^"]*)";',
+    header,
+):
+    function, prefix, suffix = match.groups()
+    count = 4 if function.startswith("osc") else 2 if function.startswith("lfo") else 8
+    valid_ids.update(f"{prefix}{index}{suffix}" for index in range(1, count + 1))
+
 errors = []
 for path in files:
     try:
@@ -25,9 +36,9 @@ for path in files:
         params = [node.attrib.get("id", "") for node in root.iter("PARAM")]
         if not params:
             raise ValueError("no APVTS PARAM nodes")
-        legacy = [pid for pid in params if pid.endswith("_waveform")]
-        if legacy:
-            raise ValueError(f"legacy oscillator parameter IDs: {', '.join(legacy)}")
+        unknown = sorted(set(params) - valid_ids)
+        if unknown:
+            raise ValueError(f"unknown APVTS parameter IDs: {', '.join(unknown)}")
         if len(params) != len(set(params)):
             raise ValueError("duplicate APVTS parameter IDs")
     except Exception as exc:
