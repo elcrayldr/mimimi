@@ -10,7 +10,7 @@ if(MSVC)
   add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 
-option(CRAY_BUILD_TESTS "Build and run CRAY LDR JUCE unit tests" ON)
+option(CRAY_BUILD_TESTS "Build and run CRAY LDR JUCE unit tests (currently requires porting legacy tests)" OFF)
 option(CRAY_BUILD_STANDALONE "Build Standalone application alongside VST3" ON)
 set(JUCE_DIR "" CACHE PATH "Optional path to a local JUCE 8.0.6 checkout")
 
