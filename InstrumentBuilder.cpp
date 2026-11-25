@@ -143,9 +143,15 @@ namespace cray
                 // Otherwise estimate the sample's fundamental; uncertain/percussive files
                 // retain the default C root and can be corrected in the zone inspector.
                 if (auto namedNote = parseMidiNoteFromName(f.getFileName()))
+                {
                     spec.rootNote = *namedNote;
+                    spec.rootNoteKnown = true;
+                }
                 else if (auto detectedNote = decoder_.detectRootNote(f))
+                {
                     spec.rootNote = *detectedNote;
+                    spec.rootNoteKnown = true;
+                }
             }
 
             draft.zones.push_back(std::move(spec));
@@ -166,7 +172,7 @@ namespace cray
             std::vector<size_t> indices;
             for (size_t i = 0; i < draft.zones.size(); ++i)
             {
-                if (draft.zones[i].layerIndex == l)
+                if (draft.zones[i].layerIndex == l && draft.zones[i].rootNoteKnown)
                     indices.push_back(i);
             }
 
