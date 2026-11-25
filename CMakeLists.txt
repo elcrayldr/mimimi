@@ -198,6 +198,18 @@ function(cray_copy_factory_resources target resource_destination)
           "${resource_destination}/FactoryPresets"
         VERBATIM)
     endif()
+    # The 100-preset factory bank is stored in "Factory Presets/<Category>".
+    # Copy its category folders into the runtime FactoryPresets directory,
+    # preserving the hierarchy expected by LibraryManager's recursive scan.
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Factory Presets")
+      add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+          "${resource_destination}/FactoryPresets"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+          "${CMAKE_CURRENT_SOURCE_DIR}/Factory Presets"
+          "${resource_destination}/FactoryPresets"
+        VERBATIM)
+    endif()
   endif()
 endfunction()
 
