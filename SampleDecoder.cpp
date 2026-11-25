@@ -1,6 +1,7 @@
 #include "Library/SampleDecoder.h"
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace cray
 {
@@ -150,8 +151,9 @@ namespace cray
 
         // Analyse a short mono excerpt away from the full-file decode path. This keeps
         // root detection inexpensive and avoids loading long ambience/sample files twice.
-        constexpr double analysisRate = 11025.0;
-        const int stride = std::max(1, static_cast<int>(std::round(reader->sampleRate / analysisRate)));
+        constexpr double targetAnalysisRate = 11025.0;
+        const int stride = std::max(1, static_cast<int>(std::round(reader->sampleRate / targetAnalysisRate)));
+        const double effectiveAnalysisRate = reader->sampleRate / static_cast<double>(stride);
         const int sourceFrames = static_cast<int>(std::min<juce::int64>(
             reader->lengthInSamples, static_cast<juce::int64>(stride) * 8192));
         const int frames = sourceFrames / stride;
@@ -216,7 +218,7 @@ namespace cray
         if (bestLag == 0 || bestCorrelation < 0.78)
             return std::nullopt;
 
-        const double frequency = analysisRate / static_cast<double>(bestLag);
+        const double frequency = effectiveAnalysisRate / static_cast<double>(bestLag);
         const int midiNote = static_cast<int>(std::round(69.0 + 12.0 * std::log2(frequency / 440.0)));
         if (midiNote < 0 || midiNote > 127)
             return std::nullopt;
