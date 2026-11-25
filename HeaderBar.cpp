@@ -7,6 +7,13 @@ namespace cray
 {
     HeaderBar::HeaderBar(juce::AudioProcessorValueTreeState& apvts)
     {
+        if (auto logoXml = juce::XmlDocument::parse(
+                juce::String::fromUTF8(BinaryData::crayldr_brand_svg, BinaryData::crayldr_brand_svgSize));
+            logoXml != nullptr)
+        {
+            brandLogo_ = juce::Drawable::createFromSVG(*logoXml);
+        }
+
         addAndMakeVisible(browserToggleBtn_);
         addAndMakeVisible(brandLink_);
         brandLink_.setTooltip("Abrir Instagram de CRAY LDR");
@@ -125,9 +132,10 @@ namespace cray
         // Preset LCD backdrop
         const int lcdX = 226;
         const bool compact = (getWidth() < 1280 || getHeight() >= 80);
+        const int tabsXForLcd = getWidth() - 104 - 38 - 60 - 420;
         const int lcdW = compact
             ? juce::jmax(150, getWidth() - lcdX - 208 - 218 - 16)
-            : juce::jmax(180, getWidth() - 226 - 780);
+            : juce::jmax(180, tabsXForLcd - lcdX - 8);
         const auto lcdRect = compact
             ? juce::Rectangle<float>(static_cast<float>(lcdX), 5.0f, static_cast<float>(lcdW), 36.0f)
             : juce::Rectangle<float>(static_cast<float>(lcdX), 6.0f, static_cast<float>(lcdW), 38.0f);
