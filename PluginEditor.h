@@ -53,6 +53,8 @@ namespace cray
         uint64_t               lastMidiCount_  = 0;
 
         std::unique_ptr<juce::FileChooser> fileChooser_;
+        std::unique_ptr<juce::PropertiesFile> editorSettings_;
+        bool restoringEditorSize_ = false;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CrayLdrAudioProcessorEditor)
     };
