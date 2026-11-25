@@ -2,6 +2,7 @@
 #include "UI/Theme/ColorPalette.h"
 #include "Common/Categories.h"
 #include "Common/ProductInfo.h"
+#include <juce_core/juce_core.h>
 
 namespace cray
 {
@@ -81,9 +82,20 @@ namespace cray
             });
         };
 
+        juce::PropertiesFile::Options settingsOptions;
+        settingsOptions.applicationName = "CRAY LDR Urban Instruments";
+        settingsOptions.filenameSuffix = "settings";
+        settingsOptions.folderName = "CRAY LDR";
+        settingsOptions.storageFormat = juce::PropertiesFile::storeAsXML;
+        editorSettings_ = std::make_unique<juce::PropertiesFile>(settingsOptions);
+
         setResizable(true, true);
         setResizeLimits(960, 620, 2200, 1400);
-        setSize(1280, 800);
+        const int savedWidth = editorSettings_->getIntValue("editorWidth", 1280);
+        const int savedHeight = editorSettings_->getIntValue("editorHeight", 800);
+        restoringEditorSize_ = true;
+        setSize(juce::jlimit(960, 2200, savedWidth), juce::jlimit(620, 1400, savedHeight));
+        restoringEditorSize_ = false;
 
         syncAllViews();
         startTimerHz(30);
@@ -274,6 +286,12 @@ namespace cray
 
     void CrayLdrAudioProcessorEditor::resized()
     {
+        if (editorSettings_ != nullptr && !restoringEditorSize_)
+        {
+            editorSettings_->setValue("editorWidth", getWidth());
+            editorSettings_->setValue("editorHeight", getHeight());
+            editorSettings_->saveIfNeeded();
+        }
         auto area = getLocalBounds();
         headerBar_.setBounds(area.removeFromTop(56));
         keyboardBar_.setBounds(area.removeFromBottom(76));
