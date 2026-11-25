@@ -83,6 +83,7 @@ namespace cray
         {
             auto* alert = new juce::AlertWindow("New User Folder", "Enter folder name:", juce::MessageBoxIconType::QuestionIcon);
             alert->addTextEditor("folder", "My Urban Sounds");
+            alert->getTextEditor("folder")->setTextToShowWhenEmpty("Folder or subfolder (e.g. Bass/808s)", Palette::textMuted);
             alert->addButton("Create", 1, juce::KeyPress(juce::KeyPress::returnKey));
             alert->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
             alert->enterModalState(true, juce::ModalCallbackFunction::create(
@@ -90,8 +91,13 @@ namespace cray
                 {
                     if (r == 1)
                     {
-                        library_.createUserFolder(alert->getTextEditorContents("folder"));
-                        refreshItems();
+                        const auto requestedFolder = alert->getTextEditorContents("folder").trim();
+                        if (library_.createUserFolder(requestedFolder))
+                            selectUserFolder(requestedFolder);
+                        else
+                            juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
+                                "Could not create folder",
+                                "Choose a valid folder name or relative path. Absolute paths and '..' are not allowed.");
                     }
                     delete alert;
                 }), false);
@@ -163,6 +169,20 @@ namespace cray
     juce::String BrowserSidebar::getSelectedUserFolder() const
     {
         return folderBox_.getSelectedId() > 1 ? folderBox_.getText() : juce::String("Imported");
+    }
+
+    void BrowserSidebar::selectUserFolder(const juce::String& relativeFolderPath)
+    {
+        refreshItems();
+        for (int i = 0; i < folderBox_.getNumItems(); ++i)
+        {
+            if (folderBox_.getItemText(i) == relativeFolderPath)
+            {
+                folderBox_.setSelectedId(folderBox_.getItemId(i), juce::dontSendNotification);
+                refreshItems();
+                return;
+            }
+        }
     }
 
     std::vector<LibraryItem> BrowserSidebar::getSelectedItems() const
