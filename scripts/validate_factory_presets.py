@@ -7,9 +7,9 @@ import sys
 import xml.etree.ElementTree as ET
 
 preset_dir = pathlib.Path(sys.argv[1])
-files = sorted(preset_dir.glob("*.craypreset"))
-if len(files) < 8:
-    raise SystemExit(f"Expected at least 8 factory presets, found {len(files)}")
+files = sorted(preset_dir.rglob("*.craypreset"))
+if len(files) < 100:
+    raise SystemExit(f"Expected at least 100 factory presets, found {len(files)}")
 
 # Build the valid APVTS parameter-ID set from the same declarations used by C++.
 header = (pathlib.Path(__file__).resolve().parent.parent / "ParameterIDs.h").read_text(encoding="utf-8")
