@@ -333,19 +333,42 @@ namespace cray
     {
         auto area = getLocalBounds().reduced(10);
 
-        auto topBar = area.removeFromTop(28);
-        zoneSelector_.setBounds(topBar.removeFromLeft(190));
-        topBar.removeFromLeft(5);
-        auditionBtn_.setBounds(topBar.removeFromLeft(82));
-        topBar.removeFromLeft(5);
-        autoRootBtn_.setBounds(topBar.removeFromLeft(82));
-        topBar.removeFromLeft(5);
-        rootNoteSlider_.setBounds(topBar.removeFromLeft(145));
-        topBar.removeFromLeft(5);
-        normalizeBtn_.setBounds(topBar.removeFromLeft(90));
-        topBar.removeFromLeft(5);
-        relinkBtn_.setBounds(topBar.removeFromLeft(112));
-        infoLabel_.setBounds(topBar);
+        const bool compactToolbar = area.getWidth() < 840;
+        auto topBar = area.removeFromTop(compactToolbar ? 58 : 28);
+        if (compactToolbar)
+        {
+            auto sampleRow = topBar.removeFromTop(26);
+            zoneSelector_.setBounds(sampleRow.removeFromLeft(190));
+            sampleRow.removeFromLeft(5);
+            auditionBtn_.setBounds(sampleRow.removeFromLeft(82));
+            sampleRow.removeFromLeft(5);
+            autoRootBtn_.setBounds(sampleRow.removeFromLeft(82));
+            sampleRow.removeFromLeft(5);
+            rootNoteSlider_.setBounds(sampleRow.removeFromLeft(145));
+
+            topBar.removeFromTop(5);
+            auto actionRow = topBar;
+            normalizeBtn_.setBounds(actionRow.removeFromLeft(90));
+            actionRow.removeFromLeft(5);
+            relinkBtn_.setBounds(actionRow.removeFromLeft(112));
+            actionRow.removeFromLeft(8);
+            infoLabel_.setBounds(actionRow);
+        }
+        else
+        {
+            zoneSelector_.setBounds(topBar.removeFromLeft(190));
+            topBar.removeFromLeft(5);
+            auditionBtn_.setBounds(topBar.removeFromLeft(82));
+            topBar.removeFromLeft(5);
+            autoRootBtn_.setBounds(topBar.removeFromLeft(82));
+            topBar.removeFromLeft(5);
+            rootNoteSlider_.setBounds(topBar.removeFromLeft(145));
+            topBar.removeFromLeft(5);
+            normalizeBtn_.setBounds(topBar.removeFromLeft(90));
+            topBar.removeFromLeft(5);
+            relinkBtn_.setBounds(topBar.removeFromLeft(112));
+            infoLabel_.setBounds(topBar);
+        }
 
         area.removeFromTop(6);
         auto botControls = area.removeFromBottom(205);
