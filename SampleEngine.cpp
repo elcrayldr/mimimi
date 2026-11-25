@@ -345,7 +345,9 @@ namespace cray
             // Advance playhead with resampling + pitch transposition
             const double srRatio = buf.sampleRate / sampleRate_;
             const double totalSemiOffset =
-                (static_cast<double>(currentNoteFloat) - static_cast<double>(z.rootNote))
+                (z.rootNoteKnown
+                    ? (static_cast<double>(currentNoteFloat) - static_cast<double>(z.rootNote))
+                    : 0.0)
                 + static_cast<double>(z.pitchSemitones + globalParams.pitchSemis)
                 + (static_cast<double>(z.fineTuneCents + globalParams.fineCents) * 0.01)
                 + static_cast<double>(pitchBendSemis + matrixPitchSemis
