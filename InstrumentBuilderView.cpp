@@ -187,6 +187,7 @@ namespace cray
             if (detected.has_value())
             {
                 zone.rootNote = *detected;
+                zone.rootNoteKnown = true;
                 processor_.rebuildAndPublishInstrument();
                 builderStatusLabel_.setText("Detected Root Note: " + InstrumentBuilder::midiNoteToName(*detected),
                                             juce::dontSendNotification);
@@ -262,6 +263,7 @@ namespace cray
 
         auto& z = inst.zones[static_cast<size_t>(selectedZoneIdx_)];
         z.rootNote     = static_cast<int>(rootNoteSlider_.getValue());
+        z.rootNoteKnown = true;
         z.lowKey       = std::min(static_cast<int>(lowKeySlider_.getValue()), static_cast<int>(highKeySlider_.getValue()));
         z.highKey      = std::max(static_cast<int>(lowKeySlider_.getValue()), static_cast<int>(highKeySlider_.getValue()));
         z.lowVelocity  = std::min(static_cast<int>(lowVelSlider_.getValue()), static_cast<int>(highVelSlider_.getValue()));
@@ -333,7 +335,7 @@ namespace cray
         const auto txt = "L" + juce::String(z.layerIndex + 1) + " | " + z.displayName
                        + " [" + InstrumentBuilder::midiNoteToName(z.lowKey) + " - "
                        + InstrumentBuilder::midiNoteToName(z.highKey) + "] Root:"
-                       + InstrumentBuilder::midiNoteToName(z.rootNote);
+                       + (z.rootNoteKnown ? InstrumentBuilder::midiNoteToName(z.rootNote) : juce::String("UNKNOWN"));
         g.drawText(txt, 6, 0, width - 12, height, juce::Justification::centredLeft, true);
     }
 
