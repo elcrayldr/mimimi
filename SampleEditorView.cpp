@@ -36,6 +36,41 @@ namespace cray
         };
         addAndMakeVisible(normalizeBtn_);
 
+        configureSlider(rootNoteSlider_, 0, 127, 1, "");
+        rootNoteSlider_.setTooltip("Root Note: the original pitch of this sample");
+        rootNoteSlider_.textFromValueFunction = [](double value)
+        {
+            return InstrumentBuilder::midiNoteToName(static_cast<int>(value));
+        };
+        rootNoteSlider_.onValueChange = [this]()
+        {
+            if (updatingUi_) return;
+            processor_.getSampleEditorModel().setRootNote(static_cast<int>(rootNoteSlider_.getValue()));
+            syncFromModel();
+        };
+
+        autoRootBtn_.setTooltip("Detect the sample's fundamental and set its Root Note when confidence is sufficient.");
+        autoRootBtn_.onClick = [this]()
+        {
+            const auto* zone = processor_.getSampleEditorModel().getSelectedZone();
+            if (zone == nullptr)
+                return;
+            const auto detected = processor_.getSampleDecoder().detectRootNote(juce::File(zone->sourceFilePath));
+            if (detected.has_value())
+            {
+                processor_.getSampleEditorModel().setRootNote(*detected);
+                syncFromModel();
+                infoLabel_.setText("AUTO ROOT: " + InstrumentBuilder::midiNoteToName(*detected),
+                                    juce::dontSendNotification);
+            }
+            else
+            {
+                infoLabel_.setText("AUTO ROOT: pitch unclear - set manually",
+                                    juce::dontSendNotification);
+            }
+        };
+        addAndMakeVisible(autoRootBtn_);
+
         relinkBtn_.onClick = [this]()
         {
             relinkChooser_ = std::make_unique<juce::FileChooser>("Select folder containing missing samples");
@@ -240,6 +275,7 @@ namespace cray
             reverseBtn_.setToggleState(z->reverse, juce::dontSendNotification);
             loopBtn_.setToggleState(z->loopEnabled, juce::dontSendNotification);
 
+            rootNoteSlider_.setValue(z->rootNote, juce::dontSendNotification);
             gainSlider_.setValue(z->gainDb, juce::dontSendNotification);
             pitchSlider_.setValue(z->pitchSemitones, juce::dontSendNotification);
             fineSlider_.setValue(z->fineTuneCents, juce::dontSendNotification);
@@ -298,13 +334,17 @@ namespace cray
         auto area = getLocalBounds().reduced(10);
 
         auto topBar = area.removeFromTop(28);
-        zoneSelector_.setBounds(topBar.removeFromLeft(220));
-        topBar.removeFromLeft(6);
-        auditionBtn_.setBounds(topBar.removeFromLeft(88));
-        topBar.removeFromLeft(6);
-        normalizeBtn_.setBounds(topBar.removeFromLeft(95));
-        topBar.removeFromLeft(6);
-        relinkBtn_.setBounds(topBar.removeFromLeft(115));
+        zoneSelector_.setBounds(topBar.removeFromLeft(190));
+        topBar.removeFromLeft(5);
+        auditionBtn_.setBounds(topBar.removeFromLeft(82));
+        topBar.removeFromLeft(5);
+        autoRootBtn_.setBounds(topBar.removeFromLeft(82));
+        topBar.removeFromLeft(5);
+        rootNoteSlider_.setBounds(topBar.removeFromLeft(145));
+        topBar.removeFromLeft(5);
+        normalizeBtn_.setBounds(topBar.removeFromLeft(90));
+        topBar.removeFromLeft(5);
+        relinkBtn_.setBounds(topBar.removeFromLeft(112));
         infoLabel_.setBounds(topBar);
 
         area.removeFromTop(6);
