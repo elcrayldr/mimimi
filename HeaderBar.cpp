@@ -121,8 +121,13 @@ namespace cray
 
         // Preset LCD backdrop
         const int lcdX = 200;
-        const int lcdW = juce::jmax(180, getWidth() - 780);
-        const auto lcdRect = juce::Rectangle<float>(static_cast<float>(lcdX), 6.0f, static_cast<float>(lcdW), 38.0f);
+        const bool compact = (getWidth() < 1280 || getHeight() >= 80);
+        const int lcdW = compact
+            ? juce::jmax(150, getWidth() - lcdX - 208 - 218 - 16)
+            : juce::jmax(180, getWidth() - 780);
+        const auto lcdRect = compact
+            ? juce::Rectangle<float>(static_cast<float>(lcdX), 5.0f, static_cast<float>(lcdW), 36.0f)
+            : juce::Rectangle<float>(static_cast<float>(lcdX), 6.0f, static_cast<float>(lcdW), 38.0f);
         g.setColour(Palette::bgObsidian);
         g.fillRoundedRectangle(lcdRect, 5.0f);
         g.setColour(Palette::borderSubtle);
