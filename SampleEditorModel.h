@@ -30,6 +30,7 @@ namespace cray
         void setReverse(bool reverse);
         void setGainDb(float gainDb);
         void normalize(int regionStartSample = -1, int regionEndSample = -1, float targetCeilingDb = -0.3f);
+        void setRootNote(int midiNote);
         void setPitchAndFine(int pitchSemitones, float fineTuneCents);
         void setPan(float panMinus1To1);
         void setFades(int fadeInSamples, int fadeOutSamples);
