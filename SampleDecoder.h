@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 namespace cray
 {
@@ -33,6 +34,9 @@ namespace cray
 
         /** Decode (or return cached) immutable SampleBuffer. Never call from the audio thread. */
         SampleDecodeResult loadSample(const juce::File& file);
+
+        /** Estimate a monophonic sample's fundamental note. Returns empty when confidence is insufficient. */
+        std::optional<int> detectRootNote(const juce::File& file);
 
         /** Compute deterministic content hash for duplicate detection. */
         static juce::String computeFileHash(const juce::File& file);
