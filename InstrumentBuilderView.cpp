@@ -400,20 +400,42 @@ namespace cray
     {
         auto area = getLocalBounds().reduced(10);
 
-        auto topBar = area.removeFromTop(28);
-        nameEditor_.setBounds(topBar.removeFromLeft(175));
-        topBar.removeFromLeft(4);
-        categoryBox_.setBounds(topBar.removeFromLeft(135));
-        topBar.removeFromLeft(4);
-        targetLayerBox_.setBounds(topBar.removeFromLeft(88));
-        topBar.removeFromLeft(4);
-        addLayerBtn_.setBounds(topBar.removeFromLeft(66));
-        topBar.removeFromLeft(4);
-        addSamplesBtn_.setBounds(topBar.removeFromLeft(88));
-        topBar.removeFromLeft(4);
-        autoMapBtn_.setBounds(topBar.removeFromLeft(82));
-        topBar.removeFromLeft(6);
-        buildBtn_.setBounds(topBar.removeFromRight(140));
+        const bool compactToolbar = area.getWidth() < 840;
+        auto topBar = area.removeFromTop(compactToolbar ? 58 : 28);
+        if (compactToolbar)
+        {
+            auto identityRow = topBar.removeFromTop(26);
+            nameEditor_.setBounds(identityRow.removeFromLeft(175));
+            identityRow.removeFromLeft(4);
+            categoryBox_.setBounds(identityRow.removeFromLeft(135));
+            identityRow.removeFromLeft(4);
+            targetLayerBox_.setBounds(identityRow.removeFromLeft(88));
+
+            topBar.removeFromTop(5);
+            auto actionRow = topBar;
+            addLayerBtn_.setBounds(actionRow.removeFromLeft(66));
+            actionRow.removeFromLeft(4);
+            addSamplesBtn_.setBounds(actionRow.removeFromLeft(88));
+            actionRow.removeFromLeft(4);
+            autoMapBtn_.setBounds(actionRow.removeFromLeft(82));
+            buildBtn_.setBounds(actionRow.removeFromRight(140));
+        }
+        else
+        {
+            nameEditor_.setBounds(topBar.removeFromLeft(175));
+            topBar.removeFromLeft(4);
+            categoryBox_.setBounds(topBar.removeFromLeft(135));
+            topBar.removeFromLeft(4);
+            targetLayerBox_.setBounds(topBar.removeFromLeft(88));
+            topBar.removeFromLeft(4);
+            addLayerBtn_.setBounds(topBar.removeFromLeft(66));
+            topBar.removeFromLeft(4);
+            addSamplesBtn_.setBounds(topBar.removeFromLeft(88));
+            topBar.removeFromLeft(4);
+            autoMapBtn_.setBounds(topBar.removeFromLeft(82));
+            topBar.removeFromLeft(6);
+            buildBtn_.setBounds(topBar.removeFromRight(140));
+        }
 
         area.removeFromTop(6);
         auto layerBar = area.removeFromTop(22);
