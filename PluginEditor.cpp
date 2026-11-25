@@ -293,7 +293,7 @@ namespace cray
             editorSettings_->saveIfNeeded();
         }
         auto area = getLocalBounds();
-        const int headerHeight = getWidth() < 1280 ? 88 : 56;
+        const int headerHeight = getWidth() < 1280 ? 96 : 64;
         headerBar_.setBounds(area.removeFromTop(headerHeight));
         keyboardBar_.setBounds(area.removeFromBottom(76));
 
