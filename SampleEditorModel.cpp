@@ -149,6 +149,7 @@ namespace cray
         auto* z = getSelectedZone();
         if (z == nullptr) return;
         z->rootNote = std::clamp(midiNote, 0, 127);
+        z->rootNoteKnown = true;
         notifyModified();
     }
 
