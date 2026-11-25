@@ -11,7 +11,7 @@ namespace cray
     {
         juce::String sanitiseRelativeFolderPath(juce::String path)
         {
-            path = path.trim().replaceCharacter('\\\\', '/');
+            path = path.trim().replaceCharacter('\\', '/');
             if (path.isEmpty() || path.startsWith("/") || path.contains(":"))
                 return {};
 
