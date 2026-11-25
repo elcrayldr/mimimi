@@ -159,6 +159,14 @@ namespace cray
         addAndMakeVisible(zoneList_);
 
         configureIntSlider(rootNoteSlider_, 0, 127);
+        rootNoteSlider_.onValueChange = [this]()
+        {
+            if (updatingUi_) return;
+            auto& zones = processor_.getActiveInstrument().zones;
+            if (selectedZoneIdx_ >= 0 && selectedZoneIdx_ < static_cast<int>(zones.size()))
+                zones[static_cast<size_t>(selectedZoneIdx_)].rootNoteKnown = true;
+            applyZoneInspectorEdits();
+        };
         configureIntSlider(lowKeySlider_,   0, 127);
         configureIntSlider(highKeySlider_,  0, 127);
         configureIntSlider(lowVelSlider_,   1, 127);
@@ -263,7 +271,6 @@ namespace cray
 
         auto& z = inst.zones[static_cast<size_t>(selectedZoneIdx_)];
         z.rootNote     = static_cast<int>(rootNoteSlider_.getValue());
-        z.rootNoteKnown = true;
         z.lowKey       = std::min(static_cast<int>(lowKeySlider_.getValue()), static_cast<int>(highKeySlider_.getValue()));
         z.highKey      = std::max(static_cast<int>(lowKeySlider_.getValue()), static_cast<int>(highKeySlider_.getValue()));
         z.lowVelocity  = std::min(static_cast<int>(lowVelSlider_.getValue()), static_cast<int>(highVelSlider_.getValue()));
