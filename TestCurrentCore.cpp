@@ -251,7 +251,13 @@ namespace
             expect(outputStream != nullptr, "Could not open temporary WAV output stream");
             std::unique_ptr<juce::AudioFormatWriter> writer;
             if (outputStream != nullptr)
-                writer.reset(wav.createWriterFor(outputStream.release(), sampleRate, 1u, 24, {}, 0));
+            {
+                auto* rawOutputStream = outputStream.get();
+                auto* rawWriter = wav.createWriterFor(rawOutputStream, sampleRate, 1u, 24, {}, 0);
+                if (rawWriter != nullptr)
+                    outputStream.release(); // Ownership transfers to AudioFormatWriter on success.
+                writer.reset(rawWriter);
+            }
             expect(writer != nullptr, "Could not create temporary WAV for root detection test");
             if (writer != nullptr)
             {
