@@ -6,6 +6,7 @@
 // =============================================================================
 
 #include <JuceHeader.h>
+#include <iostream>
 
 // Test translation units are explicitly listed in CMakeLists.txt.
 // Each compiled test file registers its JUCE UnitTest at static initialization.
@@ -25,18 +26,20 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
         if (r->failures > 0)
         {
             ++failures;
-            juce::Logger::writeToLog("[FAIL] " + r->unitTestName + " (" + juce::String(r->failures) + " failure(s))");
+            std::cout << "[FAIL] " << r->unitTestName << " (" << r->failures << " failure(s))" << std::endl;
+            for (const auto& message : r->messages)
+                std::cout << "  " << message << std::endl;
         }
         else
         {
-            juce::Logger::writeToLog("[PASS] " + r->unitTestName);
+            std::cout << "[PASS] " << r->unitTestName << std::endl;
         }
     }
 
     if (failures == 0)
-        juce::Logger::writeToLog("\n==  All tests passed  ==");
+        std::cout << "\n==  All tests passed  ==" << std::endl;
     else
-        juce::Logger::writeToLog("\n== " + juce::String(failures) + " test suite(s) FAILED ==");
+        std::cout << "\n== " << failures << " test suite(s) FAILED ==" << std::endl;
 
     return failures > 0 ? 1 : 0;
 }
