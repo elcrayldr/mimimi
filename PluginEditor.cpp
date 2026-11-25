@@ -2,10 +2,62 @@
 #include "UI/Theme/ColorPalette.h"
 #include "Common/Categories.h"
 #include "Common/ProductInfo.h"
-#include <juce_core/juce_core.h>
+#include <juce_core/juce_core.h>\n#include <BinaryData.h>
 
 namespace cray
 {
+    StartupSplash::StartupSplash()
+    {
+        if (auto logoXml = juce::XmlDocument::parse(
+                juce::String::fromUTF8(BinaryData::crayldr_brand_svg, BinaryData::crayldr_brand_svgSize));
+            logoXml != nullptr)
+        {
+            logo_ = juce::Drawable::createFromSVG(*logoXml);
+        }
+        setInterceptsMouseClicks(false, false);
+    }
+
+    void StartupSplash::setProgress(float progress)
+    {
+        progress_ = juce::jlimit(0.0f, 1.0f, progress);
+        repaint();
+    }
+
+    void StartupSplash::paint(juce::Graphics& g)
+    {
+        g.fillAll(Palette::bgObsidian);
+
+        const auto card = getLocalBounds().toFloat().withSizeKeepingCentre(
+            juce::jmin(620.0f, getWidth() - 48.0f), 300.0f);
+        g.setColour(Palette::bgGraphite);
+        g.fillRoundedRectangle(card, 12.0f);
+        g.setColour(Palette::borderSubtle);
+        g.drawRoundedRectangle(card, 12.0f, 1.0f);
+
+        if (logo_ != nullptr)
+            logo_->drawWithin(g, juce::Rectangle<float>(card.getCentreX() - 215.0f, card.getY() + 42.0f,
+                                                       430.0f, 145.0f),
+                              juce::RectanglePlacement::centred, 1.0f);
+
+        g.setColour(Palette::textSecondary);
+        g.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
+        g.drawText("INITIALIZING  /  URBAN INSTRUMENTS",
+                   card.withY(card.getCentreY() + 38.0f).withHeight(22.0f).toNearestInt(),
+                   juce::Justification::centred);
+
+        const auto track = juce::Rectangle<float>(card.getCentreX() - 190.0f, card.getBottom() - 48.0f, 380.0f, 4.0f);
+        g.setColour(Palette::bgObsidian);
+        g.fillRoundedRectangle(track, 2.0f);
+        g.setColour(Palette::goldPrimary);
+        g.fillRoundedRectangle(track.withWidth(track.getWidth() * progress_), 2.0f);
+
+        g.setColour(Palette::textMuted);
+        g.setFont(juce::Font(juce::FontOptions(9.5f, juce::Font::plain)));
+        g.drawText("CRAY LDR  /  V1.0.2",
+                   card.withY(card.getBottom() - 31.0f).withHeight(16.0f).toNearestInt(),
+                   juce::Justification::centred);
+    }
+
     CrayLdrAudioProcessorEditor::CrayLdrAudioProcessorEditor(CrayLdrAudioProcessor& p)
         : AudioProcessorEditor(&p),
           processor_(p),
@@ -29,6 +81,8 @@ namespace cray
         addChildComponent(sampleEditorView_);
         addChildComponent(instrumentBuilderView_);
         addChildComponent(effectsView_);
+        addAndMakeVisible(startupSplash_);
+        startupSplash_.setAlwaysOnTop(true);
 
         headerBar_.onTabSelected = [this](ActiveViewTab tab) { showActiveView(tab); };
         headerBar_.onToggleBrowser = [this]()
@@ -98,6 +152,8 @@ namespace cray
         restoringEditorSize_ = false;
 
         syncAllViews();
+        startupSplashStartMs_ = juce::Time::getMillisecondCounter();
+        startupSplash_.setProgress(0.0f);
         startTimerHz(30);
     }
 
@@ -263,6 +319,17 @@ namespace cray
 
     void CrayLdrAudioProcessorEditor::timerCallback()
     {
+        if (startupSplashVisible_)
+        {
+            const auto elapsedMs = juce::Time::getMillisecondCounter() - startupSplashStartMs_;
+            startupSplash_.setProgress(juce::jmin(1.0f, static_cast<float>(elapsedMs) / 900.0f));
+            if (elapsedMs >= 1050)
+            {
+                startupSplashVisible_ = false;
+                startupSplash_.setVisible(false);
+            }
+        }
+
         auto& tel = processor_.getTelemetry();
         const float pL = tel.peakLeft.load(std::memory_order_relaxed);
         const float pR = tel.peakRight.load(std::memory_order_relaxed);
@@ -308,5 +375,6 @@ namespace cray
         sampleEditorView_.setBounds(area);
         instrumentBuilderView_.setBounds(area);
         effectsView_.setBounds(area);
+        startupSplash_.setBounds(getLocalBounds());
     }
 }
