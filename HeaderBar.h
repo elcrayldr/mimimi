@@ -42,6 +42,7 @@ namespace cray
         std::array<juce::TextButton, 5> tabButtons_;
         ActiveViewTab                   currentTab_ = ActiveViewTab::Main;
 
+        std::unique_ptr<juce::Drawable> brandLogo_;
         juce::TextButton brandLink_          { "" };
         juce::TextButton browserToggleBtn_ { "LIB" };
         juce::TextButton prevBtn_          { "<" };
