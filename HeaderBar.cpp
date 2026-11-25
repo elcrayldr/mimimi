@@ -16,12 +16,12 @@ namespace cray
 
         addAndMakeVisible(browserToggleBtn_);
         addAndMakeVisible(brandLink_);
+        if (brandLogo_ != nullptr)
+            brandLink_.setImages(brandLogo_.get());
         brandLink_.setTooltip("Abrir Instagram de CRAY LDR");
         brandLink_.setMouseCursor(juce::MouseCursor::PointingHandCursor);
-        brandLink_.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-        brandLink_.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
-        brandLink_.setColour(juce::TextButton::textColourOffId, juce::Colours::transparentBlack);
-        brandLink_.setColour(juce::TextButton::textColourOnId, juce::Colours::transparentBlack);
+        brandLink_.setColour(juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+        brandLink_.setColour(juce::DrawableButton::backgroundOnColourId, juce::Colours::transparentBlack);
         brandLink_.onClick = [] { juce::URL("https://www.instagram.com/crayldr/").launchInDefaultBrowser(); };
         browserToggleBtn_.setClickingTogglesState(true);
         browserToggleBtn_.setToggleState(true, juce::dontSendNotification);
@@ -118,11 +118,8 @@ namespace cray
         g.setColour(Palette::borderSubtle);
         g.drawHorizontalLine(getHeight() - 1, 0.0f, static_cast<float>(getWidth()));
 
-        // Original traced La Zeta Music / CRAY LDR LAB vector mark.
-        if (brandLogo_ != nullptr)
-            brandLogo_->drawWithin(g, juce::Rectangle<float>(48.0f, 3.0f, 170.0f, 58.0f),
-                                   juce::RectanglePlacement::centred, 1.0f);
-        else
+        // The drawable button renders the SVG and owns the clickable logo hit area.
+        if (brandLogo_ == nullptr)
         {
             g.setColour(Palette::goldPrimary);
             g.setFont(juce::Font(juce::FontOptions(16.0f, juce::Font::bold)));
@@ -168,7 +165,7 @@ namespace cray
         const int meterW = 104;
         const int knobW = 38;
 
-        brandLink_.setBounds(46, 3, 174, 58);
+        brandLink_.setBounds(46, 3, 176, 58);
         browserToggleBtn_.setBounds(8, compact ? 7 : 18, 34, 26);
 
         meter_.setBounds(w - meterW - 8, compact ? 7 : 10, meterW, 30);
