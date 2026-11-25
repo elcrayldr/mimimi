@@ -189,8 +189,7 @@ namespace cray
         // Normalised autocorrelation across a musical range of roughly 35–1500 Hz.
         const int minLag = 7;
         const int maxLag = std::min(315, frames / 3);
-        double bestCorrelation = 0.0;
-        int bestLag = 0;
+        std::vector<double> correlations(static_cast<size_t>(maxLag + 1), 0.0);
         for (int lag = minLag; lag <= maxLag; ++lag)
         {
             double cross = 0.0, leftEnergy = 0.0, rightEnergy = 0.0;
@@ -205,20 +204,40 @@ namespace cray
             }
 
             const double denom = std::sqrt(leftEnergy * rightEnergy);
-            const double correlation = (denom > 1.0e-12) ? (cross / denom) : 0.0;
-            if (correlation > bestCorrelation)
+            correlations[static_cast<size_t>(lag)] = (denom > 1.0e-12) ? (cross / denom) : 0.0;
+        }
+
+        // Select the first credible local maximum, not the global maximum.
+        // A periodic waveform also correlates at 2x, 3x, ... its period; choosing
+        // the global maximum often locks to a long-period subharmonic (wrong octave).
+        int bestLag = 0;
+        double bestCorrelation = 0.0;
+        for (int lag = minLag + 1; lag < maxLag; ++lag)
+        {
+            const double correlation = correlations[static_cast<size_t>(lag)];
+            if (correlation >= 0.78
+                && correlation >= correlations[static_cast<size_t>(lag - 1)]
+                && correlation > correlations[static_cast<size_t>(lag + 1)])
             {
-                bestCorrelation = correlation;
                 bestLag = lag;
+                bestCorrelation = correlation;
+                break;
             }
         }
 
-        // Conservative threshold: ambiguous/noisy/percussive samples remain manually editable
-        // instead of being assigned a misleading pitch.
+        // Conservative threshold: ambiguous/noisy/percussive samples remain manually editable.
         if (bestLag == 0 || bestCorrelation < 0.78)
             return std::nullopt;
 
-        const double frequency = effectiveAnalysisRate / static_cast<double>(bestLag);
+        // Parabolic interpolation around the peak reduces one-sample quantisation error.
+        const double y0 = correlations[static_cast<size_t>(bestLag - 1)];
+        const double y1 = correlations[static_cast<size_t>(bestLag)];
+        const double y2 = correlations[static_cast<size_t>(bestLag + 1)];
+        const double curvature = y0 - 2.0 * y1 + y2;
+        const double offset = std::abs(curvature) > 1.0e-12
+            ? 0.5 * (y0 - y2) / curvature : 0.0;
+        const double refinedLag = static_cast<double>(bestLag) + std::clamp(offset, -0.5, 0.5);
+        const double frequency = effectiveAnalysisRate / refinedLag;
         const int midiNote = static_cast<int>(std::round(69.0 + 12.0 * std::log2(frequency / 440.0)));
         if (midiNote < 0 || midiNote > 127)
             return std::nullopt;
