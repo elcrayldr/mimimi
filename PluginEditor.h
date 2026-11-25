@@ -14,6 +14,18 @@
 
 namespace cray
 {
+    class StartupSplash final : public juce::Component
+    {
+    public:
+        StartupSplash();
+        void paint(juce::Graphics& g) override;
+        void setProgress(float progress);
+
+    private:
+        std::unique_ptr<juce::Drawable> logo_;
+        float progress_ = 0.0f;
+    };
+
     class CrayLdrAudioProcessorEditor : public juce::AudioProcessorEditor,
                                         private juce::Timer
     {
@@ -55,6 +67,10 @@ namespace cray
         std::unique_ptr<juce::FileChooser> fileChooser_;
         std::unique_ptr<juce::PropertiesFile> editorSettings_;
         bool restoringEditorSize_ = false;
+
+        StartupSplash startupSplash_;
+        bool startupSplashVisible_ = true;
+        juce::uint32 startupSplashStartMs_ = 0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CrayLdrAudioProcessorEditor)
     };
