@@ -80,6 +80,52 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "VST3 bundle architecture validation failed." }
           "VST3_PATH=$($plugin.FullName)" >> $env:GITHUB_OUTPUT
 
+      - name: Prepare final Windows release package
+        id: package
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "CRAY-LDR-Urban-Instruments-Release"
+          if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
+          $vst3Stage = Join-Path $stage "VST3"
+          $standaloneStage = Join-Path $stage "Standalone"
+          New-Item -ItemType Directory -Path $vst3Stage -Force | Out-Null
+          New-Item -ItemType Directory -Path $standaloneStage -Force | Out-Null
+
+          $pluginPath = "${{ steps.locate.outputs.VST3_PATH }}"
+          Copy-Item -LiteralPath $pluginPath -Destination $vst3Stage -Recurse
+
+          $standalone = Get-ChildItem -Path build -Recurse -File -Filter "*.exe" |
+            Where-Object { $_.Name -like "*CRAY*" -or $_.Name -like "*Urban*" } |
+            Select-Object -First 1
+          if ($null -eq $standalone) { throw "Standalone executable was not produced." }
+          Copy-Item -LiteralPath $standalone.FullName -Destination $standaloneStage
+
+          foreach ($doc in @("README.md", "ARCHITECTURE.md")) {
+            if (Test-Path -LiteralPath $doc) { Copy-Item -LiteralPath $doc -Destination $stage }
+          }
+          @"
+          CRAY LDR URBAN INSTRUMENTS
+          Version: 1.0.2
+          Platform: Windows x64
+          JUCE: 8.0.6
+          Build: Release
+          Automated unit tests: passed
+          "@" | Set-Content -LiteralPath (Join-Path $stage "VERSION.txt") -Encoding UTF8
+
+          $zip = Join-Path $env:RUNNER_TEMP "CRAY-LDR-Urban-Instruments-Win64-Release.zip"
+          if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip -CompressionLevel Optimal
+          if (-not (Test-Path -LiteralPath $zip)) { throw "Release ZIP was not created." }
+          "RELEASE_ZIP=$zip" >> $env:GITHUB_OUTPUT
+
+      - name: Upload final Windows release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: CRAY-LDR-Urban-Instruments-Win64-Release
+          path: ${{ steps.package.outputs.RELEASE_ZIP }}
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload VST3
         uses: actions/upload-artifact@v4
         with:
