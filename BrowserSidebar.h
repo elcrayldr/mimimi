@@ -24,6 +24,7 @@ namespace cray
         std::vector<LibraryItem> getSelectedItems() const;
         /** Folder receiving newly imported samples; defaults to Imported when All Folders is selected. */
         juce::String getSelectedUserFolder() const;
+        void selectUserFolder(const juce::String& relativeFolderPath);
         const std::vector<LibraryItem>& getFilteredItems() const noexcept { return visibleItems_; }
 
         std::function<void(const LibraryItem&)>             onItemActivated;
