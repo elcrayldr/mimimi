@@ -160,6 +160,11 @@ namespace cray
         listBox_.repaint();
     }
 
+    juce::String BrowserSidebar::getSelectedUserFolder() const
+    {
+        return folderBox_.getSelectedId() > 1 ? folderBox_.getText() : juce::String("Imported");
+    }
+
     std::vector<LibraryItem> BrowserSidebar::getSelectedItems() const
     {
         std::vector<LibraryItem> out;
