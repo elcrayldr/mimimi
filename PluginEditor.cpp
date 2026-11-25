@@ -15,7 +15,7 @@ namespace cray
         {
             logo_ = juce::Drawable::createFromSVG(*logoXml);
         }
-        setInterceptsMouseClicks(false, false);
+        setInterceptsMouseClicks(true, true);
     }
 
     void StartupSplash::setProgress(float progress)
@@ -42,7 +42,7 @@ namespace cray
 
         g.setColour(Palette::textSecondary);
         g.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
-        g.drawText("INITIALIZING  /  URBAN INSTRUMENTS",
+        g.drawText("STARTING  /  URBAN INSTRUMENTS",
                    card.withY(card.getCentreY() + 38.0f).withHeight(22.0f).toNearestInt(),
                    juce::Justification::centred);
 
