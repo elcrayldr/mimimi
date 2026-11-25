@@ -1,6 +1,7 @@
 #include "UI/Components/HeaderBar.h"
 #include "UI/Theme/ColorPalette.h"
 #include "Common/ParameterIDs.h"
+#include <BinaryData.h>
 
 namespace cray
 {
@@ -110,21 +111,23 @@ namespace cray
         g.setColour(Palette::borderSubtle);
         g.drawHorizontalLine(getHeight() - 1, 0.0f, static_cast<float>(getWidth()));
 
-        // Brand emblem on left
-        g.setColour(Palette::goldPrimary);
-        g.setFont(juce::Font(juce::FontOptions(16.0f, juce::Font::bold)));
-        g.drawText("CRAY LDR", 48, 8, 130, 20, juce::Justification::centredLeft);
-
-        g.setColour(Palette::textSecondary);
-        g.setFont(juce::Font(juce::FontOptions(9.5f, juce::Font::bold)));
-        g.drawText("URBAN INSTRUMENTS", 48, 27, 145, 14, juce::Justification::centredLeft);
+        // Original traced La Zeta Music / CRAY LDR LAB vector mark.
+        if (brandLogo_ != nullptr)
+            brandLogo_->drawWithin(g, juce::Rectangle<float>(48.0f, 3.0f, 170.0f, 58.0f),
+                                   juce::RectanglePlacement::centred, 1.0f);
+        else
+        {
+            g.setColour(Palette::goldPrimary);
+            g.setFont(juce::Font(juce::FontOptions(16.0f, juce::Font::bold)));
+            g.drawText("CRAY LDR LAB", 48, 8, 170, 24, juce::Justification::centredLeft);
+        }
 
         // Preset LCD backdrop
-        const int lcdX = 200;
+        const int lcdX = 226;
         const bool compact = (getWidth() < 1280 || getHeight() >= 80);
         const int lcdW = compact
             ? juce::jmax(150, getWidth() - lcdX - 208 - 218 - 16)
-            : juce::jmax(180, getWidth() - 780);
+            : juce::jmax(180, getWidth() - 226 - 780);
         const auto lcdRect = compact
             ? juce::Rectangle<float>(static_cast<float>(lcdX), 5.0f, static_cast<float>(lcdW), 36.0f)
             : juce::Rectangle<float>(static_cast<float>(lcdX), 6.0f, static_cast<float>(lcdW), 38.0f);
@@ -157,8 +160,8 @@ namespace cray
         const int meterW = 104;
         const int knobW = 38;
 
-        brandLink_.setBounds(46, 4, 148, 44);
-        browserToggleBtn_.setBounds(8, compact ? 7 : 12, 34, 26);
+        brandLink_.setBounds(46, 3, 174, 58);
+        browserToggleBtn_.setBounds(8, compact ? 7 : 18, 34, 26);
 
         meter_.setBounds(w - meterW - 8, compact ? 7 : 10, meterW, 30);
         masterGainSlider_.setBounds(w - meterW - 8 - knobW - 44, compact ? 3 : 5, knobW, 40);
@@ -170,7 +173,7 @@ namespace cray
             const int actionWidth = 218;
             const int rightSectionWidth = 208;
             const int actionX = juce::jmax(430, w - rightSectionWidth - actionWidth - 8);
-            const int lcdX = 200;
+            const int lcdX = 226;
             const int lcdRight = actionX - 8;
             const int lcdWidth = juce::jmax(150, lcdRight - lcdX);
 
@@ -187,7 +190,7 @@ namespace cray
             importBtn_.setBounds(btnX + 182, 7, 36, 28);
 
             const int tabsX = 8;
-            const int tabsY = 51;
+            const int tabsY = 61;
             const int tabsWidth = w - 16;
             const int tabWidth = tabsWidth / 5;
             for (int i = 0; i < 5; ++i)
@@ -202,7 +205,7 @@ namespace cray
             for (int i = 0; i < 5; ++i)
                 tabButtons_[static_cast<size_t>(i)].setBounds(tabsX + i * tabW + 2, 10, tabW - 4, 30);
 
-            const int lcdX = 200;
+            const int lcdX = 226;
             const int lcdW = juce::jmax(180, tabsX - lcdX - 8);
             const int btnX = lcdX + lcdW - 224;
             presetNameLabel_.setBounds(lcdX + 8, 8, juce::jmax(80, btnX - lcdX - 10), 18);
