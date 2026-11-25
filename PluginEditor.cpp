@@ -49,7 +49,8 @@ namespace cray
         };
         browserSidebar_.onFilesDropped = [this](const juce::Array<juce::File>& files)
         {
-            const auto res = processor_.getLibraryManager().importAudioFiles(files);
+            const auto res = processor_.getLibraryManager().importAudioFiles(files, SoundCategory::DrumsAndPercussion,
+                browserSidebar_.getSelectedUserFolder(), true);
             browserSidebar_.refreshItems();
             if (!res.importedIds.isEmpty())
             {
@@ -181,7 +182,8 @@ namespace cray
                 const auto files = fc.getResults();
                 if (!files.isEmpty())
                 {
-                    processor_.getLibraryManager().importAudioFiles(files);
+                    processor_.getLibraryManager().importAudioFiles(files, SoundCategory::DrumsAndPercussion,
+                        browserSidebar_.getSelectedUserFolder(), true);
                     browserSidebar_.refreshItems();
                 }
             });
