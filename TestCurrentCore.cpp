@@ -247,8 +247,11 @@ namespace
                                            * static_cast<double>(i) / sampleRate);
 
             juce::WavAudioFormat wav;
-            std::unique_ptr<juce::AudioFormatWriter> writer(
-                wav.createWriterFor(tempFile.createOutputStream(), sampleRate, 1, 24, {}, 0));
+            auto outputStream = tempFile.createOutputStream();
+            expect(outputStream != nullptr, "Could not open temporary WAV output stream");
+            std::unique_ptr<juce::AudioFormatWriter> writer;
+            if (outputStream != nullptr)
+                writer.reset(wav.createWriterFor(outputStream.release(), sampleRate, 1u, 24, {}, 0));
             expect(writer != nullptr, "Could not create temporary WAV for root detection test");
             if (writer != nullptr)
             {
