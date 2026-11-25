@@ -134,6 +134,96 @@ namespace cray
         return result;
     }
 
+
+    std::optional<int> SampleDecoder::detectRootNote(const juce::File& file)
+    {
+        if (!file.existsAsFile() || !isSupportedAudioFile(file))
+            return std::nullopt;
+
+        std::unique_ptr<juce::AudioFormatReader> reader;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            reader.reset(formatManager_.createReaderFor(file));
+        }
+        if (reader == nullptr || reader->lengthInSamples < 2048 || reader->sampleRate < 4000.0)
+            return std::nullopt;
+
+        // Analyse a short mono excerpt away from the full-file decode path. This keeps
+        // root detection inexpensive and avoids loading long ambience/sample files twice.
+        constexpr double analysisRate = 11025.0;
+        const int stride = std::max(1, static_cast<int>(std::round(reader->sampleRate / analysisRate)));
+        const int sourceFrames = static_cast<int>(std::min<juce::int64>(
+            reader->lengthInSamples, static_cast<juce::int64>(stride) * 8192));
+        const int frames = sourceFrames / stride;
+        if (frames < 1024)
+            return std::nullopt;
+
+        juce::AudioBuffer<float> source(static_cast<int>(std::min<unsigned int>(reader->numChannels, 2u)), sourceFrames);
+        if (!reader->read(&source, 0, sourceFrames, 0, true, source.getNumChannels() > 1))
+            return std::nullopt;
+
+        std::vector<float> mono(static_cast<size_t>(frames), 0.0f);
+        double mean = 0.0;
+        for (int i = 0; i < frames; ++i)
+        {
+            const int sourceIndex = i * stride;
+            float value = source.getSample(0, sourceIndex);
+            if (source.getNumChannels() > 1)
+                value = 0.5f * (value + source.getSample(1, sourceIndex));
+            mono[static_cast<size_t>(i)] = value;
+            mean += value;
+        }
+        mean /= static_cast<double>(frames);
+
+        double energy = 0.0;
+        for (auto& value : mono)
+        {
+            value = static_cast<float>(value - mean);
+            energy += static_cast<double>(value) * value;
+        }
+        if (energy < 1.0e-7)
+            return std::nullopt;
+
+        // Normalised autocorrelation across a musical range of roughly 35–1500 Hz.
+        const int minLag = 7;
+        const int maxLag = std::min(315, frames / 3);
+        double bestCorrelation = 0.0;
+        int bestLag = 0;
+        for (int lag = minLag; lag <= maxLag; ++lag)
+        {
+            double cross = 0.0, leftEnergy = 0.0, rightEnergy = 0.0;
+            const int count = frames - lag;
+            for (int i = 0; i < count; ++i)
+            {
+                const double a = mono[static_cast<size_t>(i)];
+                const double b = mono[static_cast<size_t>(i + lag)];
+                cross += a * b;
+                leftEnergy += a * a;
+                rightEnergy += b * b;
+            }
+
+            const double denom = std::sqrt(leftEnergy * rightEnergy);
+            const double correlation = (denom > 1.0e-12) ? (cross / denom) : 0.0;
+            if (correlation > bestCorrelation)
+            {
+                bestCorrelation = correlation;
+                bestLag = lag;
+            }
+        }
+
+        // Conservative threshold: ambiguous/noisy/percussive samples remain manually editable
+        // instead of being assigned a misleading pitch.
+        if (bestLag == 0 || bestCorrelation < 0.78)
+            return std::nullopt;
+
+        const double frequency = analysisRate / static_cast<double>(bestLag);
+        const int midiNote = static_cast<int>(std::round(69.0 + 12.0 * std::log2(frequency / 440.0)));
+        if (midiNote < 0 || midiNote > 127)
+            return std::nullopt;
+
+        return midiNote;
+    }
+
     juce::String SampleDecoder::computeFileHash(const juce::File& file)
     {
         if (!file.existsAsFile())
