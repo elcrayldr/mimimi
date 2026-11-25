@@ -74,6 +74,7 @@ namespace cray
             cz.sample          = dec.buffer;
             cz.layerIndex      = spec.layerIndex;
             cz.rootNote        = std::clamp(spec.rootNote, 0, 127);
+            cz.rootNoteKnown   = spec.rootNoteKnown;
             cz.lowKey          = std::clamp(spec.lowKey, 0, 127);
             cz.highKey         = std::clamp(std::max(spec.lowKey, spec.highKey), 0, 127);
             cz.lowVelocity     = std::clamp(spec.lowVelocity, 1, 127);
@@ -166,6 +167,7 @@ namespace cray
             zo->setProperty("displayName", z.displayName);
             zo->setProperty("layerIndex", z.layerIndex);
             zo->setProperty("rootNote", z.rootNote);
+            zo->setProperty("rootNoteKnown", z.rootNoteKnown);
             zo->setProperty("lowKey", z.lowKey);
             zo->setProperty("highKey", z.highKey);
             zo->setProperty("lowVelocity", z.lowVelocity);
@@ -251,6 +253,10 @@ namespace cray
                 z.displayName       = zo->getProperty("displayName").toString();
                 z.layerIndex        = static_cast<int>(zo->getProperty("layerIndex"));
                 z.rootNote          = zo->hasProperty("rootNote") ? static_cast<int>(zo->getProperty("rootNote")) : 60;
+                // Legacy presets stored a root note unconditionally; preserve their prior chromatic behavior.
+                z.rootNoteKnown     = zo->hasProperty("rootNoteKnown")
+                    ? static_cast<bool>(zo->getProperty("rootNoteKnown"))
+                    : true;
                 z.lowKey            = zo->hasProperty("lowKey") ? static_cast<int>(zo->getProperty("lowKey")) : 0;
                 z.highKey           = zo->hasProperty("highKey") ? static_cast<int>(zo->getProperty("highKey")) : 127;
                 z.lowVelocity       = zo->hasProperty("lowVelocity") ? static_cast<int>(zo->getProperty("lowVelocity")) : 1;
