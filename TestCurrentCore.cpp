@@ -76,6 +76,7 @@ namespace
             zone.sourceFilePath = "Samples/C4.wav";
             zone.displayName = "C4";
             zone.rootNote = 60;
+            zone.rootNoteKnown = true;
             zone.lowKey = 48;
             zone.highKey = 71;
             zone.lowVelocity = 1;
@@ -193,6 +194,7 @@ namespace
             {
                 cray::SampleZoneSpec zone;
                 zone.rootNote = root;
+                zone.rootNoteKnown = true;
                 zone.layerIndex = 0;
                 instrument.zones.push_back(zone);
                 if (root == 48)
@@ -215,6 +217,18 @@ namespace
             expectEquals(instrument.zones[3].highKey, 66);
             expectEquals(instrument.zones[4].lowKey, 67);
             expectEquals(instrument.zones[4].highKey, 127);
+
+            beginTest("AutoMap leaves zones with unknown root pitch untouched");
+            cray::InstrumentDefinition unknownInstrument;
+            cray::SampleZoneSpec unknownZone;
+            unknownZone.rootNote = 60;
+            unknownZone.rootNoteKnown = false;
+            unknownZone.lowKey = 11;
+            unknownZone.highKey = 99;
+            unknownInstrument.zones.push_back(unknownZone);
+            cray::InstrumentBuilder::autoMapZonesByRootNote(unknownInstrument, 0);
+            expectEquals(unknownInstrument.zones[0].lowKey, 11);
+            expectEquals(unknownInstrument.zones[0].highKey, 99);
         }
 
         void testSampleVoicePlaybackAndPinning()
