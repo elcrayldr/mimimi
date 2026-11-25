@@ -153,11 +153,13 @@ juce_add_plugin(CrayLdrUrbanInstruments
   VST3_CATEGORIES Instrument Synth Sampler)
 
 juce_generate_juce_header(CrayLdrUrbanInstruments)
+juce_add_binary_data(CrayLdrBrandAssets SOURCES crayldr_brand.svg)
 target_sources(CrayLdrUrbanInstruments PRIVATE ${CRAY_PLUGIN_SOURCES})
 target_include_directories(CrayLdrUrbanInstruments PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CRAY_COMPAT_INCLUDE_DIR}")
 target_link_libraries(CrayLdrUrbanInstruments PRIVATE
+  CrayLdrBrandAssets
   CrayLdrCore
   juce::juce_audio_utils
   juce::juce_gui_basics
