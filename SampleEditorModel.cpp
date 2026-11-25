@@ -144,6 +144,14 @@ namespace cray
         }
     }
 
+    void SampleEditorModel::setRootNote(int midiNote)
+    {
+        auto* z = getSelectedZone();
+        if (z == nullptr) return;
+        z->rootNote = std::clamp(midiNote, 0, 127);
+        notifyModified();
+    }
+
     void SampleEditorModel::setPitchAndFine(int pitchSemitones, float fineTuneCents)
     {
         auto* z = getSelectedZone();
