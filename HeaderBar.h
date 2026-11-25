@@ -43,7 +43,7 @@ namespace cray
         ActiveViewTab                   currentTab_ = ActiveViewTab::Main;
 
         std::unique_ptr<juce::Drawable> brandLogo_;
-        juce::TextButton brandLink_          { "" };
+        juce::DrawableButton brandLink_ { "CRAY LDR logo", juce::DrawableButton::ImageFitted };
         juce::TextButton browserToggleBtn_ { "LIB" };
         juce::TextButton prevBtn_          { "<" };
         juce::TextButton nextBtn_          { ">" };
