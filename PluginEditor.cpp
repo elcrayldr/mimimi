@@ -293,11 +293,15 @@ namespace cray
             editorSettings_->saveIfNeeded();
         }
         auto area = getLocalBounds();
-        headerBar_.setBounds(area.removeFromTop(56));
+        const int headerHeight = getWidth() < 1280 ? 88 : 56;
+        headerBar_.setBounds(area.removeFromTop(headerHeight));
         keyboardBar_.setBounds(area.removeFromBottom(76));
 
         if (browserVisible_)
-            browserSidebar_.setBounds(area.removeFromLeft(252));
+        {
+            const int sidebarWidth = juce::jlimit(210, 280, static_cast<int>(getWidth() * 0.197f));
+            browserSidebar_.setBounds(area.removeFromLeft(sidebarWidth));
+        }
 
         mainView_.setBounds(area);
         editView_.setBounds(area);
