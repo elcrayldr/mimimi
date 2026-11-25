@@ -2,7 +2,8 @@
 #include "UI/Theme/ColorPalette.h"
 #include "Common/Categories.h"
 #include "Common/ProductInfo.h"
-#include <juce_core/juce_core.h>\n#include <BinaryData.h>
+#include <juce_core/juce_core.h>
+#include <BinaryData.h>
 
 namespace cray
 {
