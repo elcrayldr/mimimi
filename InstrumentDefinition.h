@@ -26,6 +26,7 @@ namespace cray
 
         int           layerIndex        = 0;
         int           rootNote          = 60;
+        bool          rootNoteKnown     = false;
         int           lowKey            = 0;
         int           highKey           = 127;
         int           lowVelocity       = 1;
