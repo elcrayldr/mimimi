@@ -107,14 +107,15 @@ jobs:
           foreach ($doc in @("README.md", "ARCHITECTURE.md")) {
             if (Test-Path -LiteralPath $doc) { Copy-Item -LiteralPath $doc -Destination $stage }
           }
-          @"
+          $version = @'
           CRAY LDR URBAN INSTRUMENTS
           Version: 1.0.2
           Platform: Windows x64
           JUCE: 8.0.6
           Build: Release
           Automated unit tests: passed
-          "@" | Set-Content -LiteralPath (Join-Path $stage "VERSION.txt") -Encoding UTF8
+          '@
+          $version | Set-Content -LiteralPath (Join-Path $stage "VERSION.txt") -Encoding UTF8
 
           $zip = Join-Path $env:RUNNER_TEMP "CRAY-LDR-Urban-Instruments-Win64-Release.zip"
           if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
