@@ -487,7 +487,16 @@ namespace cray
         if (!folder.createDirectory() && !folder.isDirectory())
             return false;
 
-        userFolders_.addIfNotAlreadyThere(clean);
+        // Register each level so nested folders remain navigable in the browser.
+        juce::StringArray parts;
+        parts.addTokens(clean, "/", "");
+        juce::String current;
+        for (const auto& part : parts)
+        {
+            current = current.isEmpty() ? part : current + "/" + part;
+            userFolders_.addIfNotAlreadyThere(current);
+        }
+        userFolders_.sort(true);
         saveUserIndex();
         return true;
     }
