@@ -7,6 +7,32 @@
 
 namespace cray
 {
+    namespace
+    {
+        juce::String sanitiseRelativeFolderPath(juce::String path)
+        {
+            path = path.trim().replaceCharacter('\\\\', '/');
+            if (path.isEmpty() || path.startsWith("/") || path.contains(":"))
+                return {};
+
+            juce::StringArray parts;
+            parts.addTokens(path, "/", "");
+            juce::StringArray safeParts;
+            for (auto part : parts)
+            {
+                part = part.trim();
+                if (part.isEmpty() || part == ".")
+                    continue;
+                if (part == "..")
+                    return {};
+                const auto safe = juce::File::createLegalFileName(part);
+                if (safe.isNotEmpty())
+                    safeParts.add(safe);
+            }
+            return safeParts.joinIntoString("/");
+        }
+    }
+
     LibraryManager::LibraryManager(SampleDecoder& decoder)
         : decoder_(decoder)
     {
@@ -377,10 +403,11 @@ namespace cray
                                                          bool copyToUserFolder)
     {
         ImportSamplesResult res;
-        if (targetFolder.isNotEmpty())
-            userFolders_.addIfNotAlreadyThere(targetFolder);
+        const auto safeTargetFolder = sanitiseRelativeFolderPath(targetFolder).isNotEmpty()
+            ? sanitiseRelativeFolderPath(targetFolder) : juce::String("Imported");
+        userFolders_.addIfNotAlreadyThere(safeTargetFolder);
 
-        const auto destBaseDir = userRoot_.getChildFile("Samples").getChildFile(targetFolder);
+        const auto destBaseDir = userRoot_.getChildFile("Samples").getChildFile(safeTargetFolder);
         if (copyToUserFolder)
             destBaseDir.createDirectory();
 
@@ -429,7 +456,7 @@ namespace cray
             item.id            = "user::" + juce::Uuid().toString();
             item.name          = src.getFileNameWithoutExtension();
             item.filePath      = targetFile.getFullPathName();
-            item.virtualFolder = targetFolder;
+            item.virtualFolder = safeTargetFolder;
             item.category      = category;
             item.bank          = "User";
             item.author        = "User";
@@ -452,12 +479,15 @@ namespace cray
 
     bool LibraryManager::createUserFolder(const juce::String& relativeFolderPath)
     {
-        const auto clean = relativeFolderPath.trim();
+        const auto clean = sanitiseRelativeFolderPath(relativeFolderPath);
         if (clean.isEmpty())
             return false;
 
+        const auto folder = userRoot_.getChildFile("Samples").getChildFile(clean);
+        if (!folder.createDirectory() && !folder.isDirectory())
+            return false;
+
         userFolders_.addIfNotAlreadyThere(clean);
-        userRoot_.getChildFile("Samples").getChildFile(clean).createDirectory();
         saveUserIndex();
         return true;
     }
