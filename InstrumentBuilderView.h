@@ -61,6 +61,7 @@ namespace cray
         juce::Slider     rootNoteSlider_, lowKeySlider_, highKeySlider_;
         juce::Slider     lowVelSlider_, highVelSlider_;
         juce::ComboBox   zoneLayerBox_;
+        juce::TextButton autoRootBtn_ { "AUTO ROOT" };
         juce::TextButton removeZoneBtn_ { "REMOVE ZONE" };
         juce::Label      builderStatusLabel_;
 
