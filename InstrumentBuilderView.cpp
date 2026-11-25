@@ -175,6 +175,31 @@ namespace cray
         addAndMakeVisible(zoneLayerBox_);
         zoneLayerBox_.onChange = [this]() { applyZoneInspectorEdits(); };
 
+        autoRootBtn_.setTooltip("Analyse the selected sample and update its Root Note when pitch is clear.");
+        autoRootBtn_.onClick = [this]()
+        {
+            auto& zones = processor_.getActiveInstrument().zones;
+            if (selectedZoneIdx_ < 0 || selectedZoneIdx_ >= static_cast<int>(zones.size()))
+                return;
+
+            auto& zone = zones[static_cast<size_t>(selectedZoneIdx_)];
+            const auto detected = processor_.getSampleDecoder().detectRootNote(juce::File(zone.sourceFilePath));
+            if (detected.has_value())
+            {
+                zone.rootNote = *detected;
+                processor_.rebuildAndPublishInstrument();
+                builderStatusLabel_.setText("Detected Root Note: " + InstrumentBuilder::midiNoteToName(*detected),
+                                            juce::dontSendNotification);
+                syncFromInstrument();
+            }
+            else
+            {
+                builderStatusLabel_.setText("Pitch unclear. Set Root Note manually or use a tonal sample.",
+                                            juce::dontSendNotification);
+            }
+        };
+        addAndMakeVisible(autoRootBtn_);
+
         removeZoneBtn_.onClick = [this]()
         {
             auto& zones = processor_.getActiveInstrument().zones;
@@ -409,6 +434,8 @@ namespace cray
         auto lastRow = botArea.removeFromTop(rh);
         zoneLayerBox_.setBounds(lastRow.removeFromLeft(110));
         lastRow.removeFromLeft(8);
+        autoRootBtn_.setBounds(lastRow.removeFromLeft(105));
+        lastRow.removeFromLeft(6);
         removeZoneBtn_.setBounds(lastRow.removeFromLeft(115));
     }
 }
