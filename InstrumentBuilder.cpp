@@ -139,8 +139,13 @@ namespace cray
 
             if (autoDetectRootNotes)
             {
-                if (auto detected = parseMidiNoteFromName(f.getFileName()))
-                    spec.rootNote = *detected;
+                // Explicit note labels in filenames take precedence over audio analysis.
+                // Otherwise estimate the sample's fundamental; uncertain/percussive files
+                // retain the default C root and can be corrected in the zone inspector.
+                if (auto namedNote = parseMidiNoteFromName(f.getFileName()))
+                    spec.rootNote = *namedNote;
+                else if (auto detectedNote = decoder_.detectRootNote(f))
+                    spec.rootNote = *detectedNote;
             }
 
             draft.zones.push_back(std::move(spec));
