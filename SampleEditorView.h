@@ -28,10 +28,12 @@ namespace cray
         juce::ComboBox     zoneSelector_;
         juce::TextButton   auditionBtn_  { "AUDITION" };
         juce::TextButton   normalizeBtn_ { "NORMALIZE" };
+        juce::TextButton   autoRootBtn_  { "AUTO ROOT" };
         juce::TextButton   relinkBtn_    { "LOCATE MISSING" };
         juce::Label        infoLabel_;
 
         WaveformView       waveformView_;
+        juce::Slider       rootNoteSlider_;
         juce::Slider       zoomSlider_;
         juce::Slider       scrollSlider_;
 
