@@ -20,6 +20,7 @@ namespace
             testEnvelopeLifecycle();
             testInstrumentDefinitionRoundTrip();
             testBuilderNoteDetectionAndKeyMapping();
+            testAudioRootNoteDetection();
             testSampleVoicePlaybackAndPinning();
             testSampleVoiceLoopFilterAndRelease();
         }
@@ -229,6 +230,38 @@ namespace
             cray::InstrumentBuilder::autoMapZonesByRootNote(unknownInstrument, 0);
             expectEquals(unknownInstrument.zones[0].lowKey, 11);
             expectEquals(unknownInstrument.zones[0].highKey, 99);
+        }
+
+        void testAudioRootNoteDetection()
+        {
+            beginTest("Audio root detector identifies a clean monophonic tone and rejects noise");
+            const auto tempFile = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                .getChildFile("CrayRootDetection_" + juce::Uuid().toString() + ".wav");
+
+            constexpr double sampleRate = 48000.0;
+            constexpr int numSamples = 48000;
+            juce::AudioBuffer<float> tone(1, numSamples);
+            auto* samples = tone.getWritePointer(0);
+            for (int i = 0; i < numSamples; ++i)
+                samples[i] = 0.5f * std::sin(juce::MathConstants<double>::twoPi * 440.0
+                                           * static_cast<double>(i) / sampleRate);
+
+            juce::WavAudioFormat wav;
+            std::unique_ptr<juce::AudioFormatWriter> writer(
+                wav.createWriterFor(tempFile.createOutputStream(), sampleRate, 1, 24, {}, 0));
+            expect(writer != nullptr, "Could not create temporary WAV for root detection test");
+            if (writer != nullptr)
+            {
+                expect(writer->writeFromAudioSampleBuffer(tone, 0, numSamples),
+                       "Could not write temporary WAV for root detection test");
+                writer.reset();
+                cray::SampleDecoder decoder;
+                const auto detected = decoder.detectRootNote(tempFile);
+                expect(detected.has_value(), "440 Hz test tone was not detected");
+                if (detected.has_value())
+                    expectEquals(*detected, 69, "440 Hz test tone should resolve to MIDI A4 (69)");
+            }
+            tempFile.deleteFile();
         }
 
         void testSampleVoicePlaybackAndPinning()
