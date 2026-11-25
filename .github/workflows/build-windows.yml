@@ -99,6 +99,10 @@ jobs:
             Select-Object -First 1
           if ($null -eq $standalone) { throw "Standalone executable was not produced." }
           Copy-Item -LiteralPath $standalone.FullName -Destination $standaloneStage
+          $standaloneResources = Join-Path $standalone.DirectoryName "Resources"
+          if (Test-Path -LiteralPath $standaloneResources) {
+            Copy-Item -LiteralPath $standaloneResources -Destination $standaloneStage -Recurse
+          }
 
           foreach ($doc in @("README.md", "ARCHITECTURE.md")) {
             if (Test-Path -LiteralPath $doc) { Copy-Item -LiteralPath $doc -Destination $stage }
